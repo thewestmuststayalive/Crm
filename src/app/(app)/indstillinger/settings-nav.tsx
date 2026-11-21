@@ -7,6 +7,7 @@ const tabs = [
   { href: "/indstillinger", label: "Firma" },
   { href: "/indstillinger/medlemmer", label: "Medlemmer" },
   { href: "/indstillinger/kontaktformular", label: "Kontaktformular" },
+  { href: "/indstillinger/meta", label: "Facebook & Instagram" },
   { href: "/indstillinger/profil", label: "Min profil" },
 ];
 

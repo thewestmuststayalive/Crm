@@ -31,6 +31,18 @@ export default defineConfig({
     // Playwright starter serveren før globalSetup, så vi venter på et endpoint uden database.
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !process.env.CI,
-    env: { DATABASE_URL: TEST_DATABASE_URL, ALLOW_REGISTRATION: "false" },
+    env: {
+      DATABASE_URL: TEST_DATABASE_URL,
+      ALLOW_REGISTRATION: "false",
+      APP_URL: `http://localhost:${PORT}`,
+      // Falske Meta-nøgler; Graph API'et simuleres af e2e/meta-mock.ts.
+      META_APP_ID: "test-app",
+      META_APP_SECRET: "test-secret",
+      META_VERIFY_TOKEN: "test-verify",
+      META_GRAPH_URL: "http://localhost:3999",
+      META_OAUTH_URL: "http://localhost:3999",
+      ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+      CRON_SECRET: "test-cron",
+    },
   },
 });
