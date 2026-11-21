@@ -112,6 +112,13 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
   await expect(list).toContainText("Ida Insta");
   await expect(list).toContainText("Gammel Kunde");
 
+  // Begge nye samtaler venter på svar
+  await page.goto("/venter");
+  const waiting = page.getByRole("list", { name: "Venter på svar" });
+  await expect(waiting).toContainText("Mads Messenger");
+  await expect(waiting).toContainText("Ida Insta");
+  await page.goto("/indbakke");
+
   // Svar på Messenger
   await list.getByRole("link", { name: /Mads Messenger/ }).click();
   await expect(page.getByRole("list", { name: "Beskeder" })).toContainText("Har I tid på fredag?");
@@ -138,6 +145,13 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
   });
   await page.reload();
   await expect(page.getByRole("list", { name: "Beskeder" }).getByText("Ja, kl. 10 passer fint")).toHaveCount(1);
+
+  // Når der er svaret, venter Mads ikke længere – men Ida gør
+  await page.goto("/venter");
+  await expect(waiting).not.toContainText("Mads Messenger");
+  await expect(waiting).toContainText("Ida Insta");
+  await page.goto("/indbakke");
+  await list.getByRole("link", { name: /Mads Messenger/ }).click();
 
   // Opret afsenderen som lead
   await page.getByRole("button", { name: "Opret som lead" }).click();

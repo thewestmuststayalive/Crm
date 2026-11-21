@@ -2,8 +2,10 @@ import "server-only";
 import { and, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { LeadSource } from "@/db/schema";
+import { markContactAwaiting } from "./awaiting";
 import { logEvent } from "./crm";
 import { OPEN_STAGES, todayIso } from "./labels";
+import { notify } from "./notify";
 
 export type IncomingLead = {
   workspaceId: string;
@@ -159,6 +161,18 @@ export async function ingestLead(lead: IncomingLead) {
       dealId,
     });
   }
+
+  // Kontakten venter nu på svar, og den ansvarlige (ellers administratorerne) får besked.
+  await markContactAwaiting(lead.workspaceId, contactId);
+  await notify({
+    workspaceId: lead.workspaceId,
+    to: assigneeId ? { userIds: [assigneeId] } : "admins",
+    type: "NEW_LEAD",
+    title: existing ? `${lead.name} har skrevet igen` : `Nyt lead: ${lead.name}`,
+    body: [`Via ${lead.channelLabel}.`, lead.message?.slice(0, 300)].filter(Boolean).join(" "),
+    href: `/kunder/${contactId}`,
+    email: true,
+  });
 
   return { contactId, dealId, existing: Boolean(existing) };
 }

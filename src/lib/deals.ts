@@ -2,8 +2,10 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { DealStage } from "@/db/schema";
+import { respondToContact } from "./awaiting";
 import { logEvent } from "./crm";
-import { STAGE_LABELS } from "./labels";
+import { formatKr, STAGE_LABELS } from "./labels";
+import { notify } from "./notify";
 
 type DealRow = typeof schema.deals.$inferSelect;
 
@@ -27,6 +29,18 @@ export async function onStageChange(deal: DealRow, newStage: DealStage, userId: 
     { dealId: deal.id, contactId: deal.contactId, companyId: deal.companyId },
   );
 
+  if (newStage === "WON") {
+    await notify({
+      workspaceId: deal.workspaceId,
+      to: "all",
+      excludeUserId: userId,
+      type: "DEAL_WON",
+      title: `Deal vundet: ${deal.title}`,
+      body: formatKr(deal.value),
+      href: `/pipeline/${deal.id}`,
+    });
+  }
+
   if (newStage === "WON" && deal.contactId) {
     await db
       .update(schema.contacts)
@@ -38,6 +52,7 @@ export async function onStageChange(deal: DealRow, newStage: DealStage, userId: 
           eq(schema.contacts.status, "LEAD"),
         ),
       );
+    await respondToContact(deal.workspaceId, deal.contactId, { log: false });
   }
 }
 

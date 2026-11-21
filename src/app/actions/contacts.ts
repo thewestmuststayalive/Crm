@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contactStatusEnum, leadSourceEnum } from "@/db/schema";
+import { respondToContact } from "@/lib/awaiting";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, isMemberOf } from "@/lib/crm";
 import { isUuid, optionalEmail, optionalId, optionalText } from "@/lib/validation";
@@ -84,6 +85,8 @@ export async function updateContact(id: string, _prev: ActionState, formData: Fo
     .update(schema.contacts)
     .set({ ...result.values, updatedAt: new Date() })
     .where(and(eq(schema.contacts.workspaceId, workspace.id), eq(schema.contacts.id, id)));
+  // Er kontakten ikke længere et lead, venter den ikke på at blive kontaktet.
+  if (result.values.status !== "LEAD") await respondToContact(workspace.id, id, { log: false });
   revalidatePath(`/kunder/${id}`);
   redirect(`/kunder/${id}`);
 }

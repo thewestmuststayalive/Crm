@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Card } from "@/components/ui";
 import { CreateWorkspaceForm } from "@/components/create-workspace-form";
 import { requireWorkspace } from "@/lib/auth";
+import { getResponseTargetSeconds } from "@/lib/waiting";
 import { hasRole } from "@/lib/roles";
 import { RenameWorkspaceForm } from "./rename-form";
 
@@ -10,12 +11,13 @@ export const metadata: Metadata = { title: "Firma" };
 export default async function WorkspaceSettingsPage() {
   const { workspace } = await requireWorkspace();
   const canEdit = hasRole(workspace.role, "ADMIN");
+  const targetMinutes = (await getResponseTargetSeconds(workspace.id)) / 60;
 
   return (
     <div className="space-y-6">
       <Card title="Firmaoplysninger" description="Navnet vises i firmavælgeren og på tværs af Kundespor.">
         {canEdit ? (
-          <RenameWorkspaceForm name={workspace.name} />
+          <RenameWorkspaceForm name={workspace.name} responseTargetMinutes={targetMinutes} />
         ) : (
           <p className="text-sm text-slate-700">{workspace.name}</p>
         )}

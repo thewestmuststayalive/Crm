@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const items: { href: string; label: string; also?: string[] }[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/venter", label: "Venter på svar" },
   { href: "/kunder", label: "Kunder", also: ["/virksomheder"] },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/opgaver", label: "Opgaver" },
@@ -35,7 +36,7 @@ export function Nav({ badges = {} }: { badges?: Record<string, number> }) {
             {badge > 0 && (
               <span
                 className="rounded-full bg-accent-400 px-1.5 text-[10px] font-semibold text-brand-950"
-                aria-label={`${badge} ulæste`}
+                aria-label={item.href === "/venter" ? `${badge} venter` : `${badge} ulæste`}
               >
                 {badge}
               </span>

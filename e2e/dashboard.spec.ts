@@ -18,7 +18,7 @@ test("dashboard viser nøgletal, og 'Alle firmaer' samler leads på tværs", asy
 
   // Tilbage i hovedfirmaet ses leadet ikke …
   await switchWorkspace(page, OWNER.company);
-  for (const label of ["Nye kontakter", "Åben pipeline", "Vundet i måneden", "Forfaldne opgaver", "Ulæste beskeder"]) {
+  for (const label of ["Nye kontakter", "Åben pipeline", "Vundet i måneden", "Forfaldne opgaver", "Venter på svar"]) {
     await expect(page.locator("main")).toContainText(label);
   }
   await expect(page.locator("main")).not.toContainText(leadName);

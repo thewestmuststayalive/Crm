@@ -4,13 +4,17 @@ import { useActionState } from "react";
 import { changePassword, updateProfile } from "@/app/actions/auth";
 import { Field, FormMessage, Input, SubmitButton } from "@/components/ui";
 
-export function ProfileForm({ name }: { name: string }) {
+export function ProfileForm({ name, emailNotifications }: { name: string; emailNotifications: boolean }) {
   const [state, action] = useActionState(updateProfile, {});
   return (
     <form action={action} className="space-y-4">
       <Field label="Navn" htmlFor="p-name">
         <Input id="p-name" name="name" defaultValue={name} required />
       </Field>
+      <label className="flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" name="emailNotifications" defaultChecked={emailNotifications} className="h-4 w-4" />
+        Send mig en e-mail, når jeg får et nyt lead
+      </label>
       <FormMessage state={state} />
       <SubmitButton>Gem</SubmitButton>
     </form>
