@@ -39,8 +39,8 @@ export async function getCampaignReport(workspaceId: string, days: number) {
       campaignId: schema.metaLeads.campaignId,
       campaignName: sql<string | null>`max(${schema.metaLeads.campaignName})`,
       crmLeads: sql<string>`count(*)`,
-      wonDeals: sql<string>`count(${schema.deals.id}) filter (where ${schema.deals.stage} = 'WON')`,
-      wonValue: sql<string>`coalesce(sum(${schema.deals.value}) filter (where ${schema.deals.stage} = 'WON'), 0)`,
+      wonDeals: sql<string>`count(${schema.deals.id}) filter (where ${schema.deals.status} = 'WON')`,
+      wonValue: sql<string>`coalesce(sum(${schema.deals.value}) filter (where ${schema.deals.status} = 'WON'), 0)`,
     })
     .from(schema.metaLeads)
     .leftJoin(schema.deals, eq(schema.deals.id, schema.metaLeads.dealId))

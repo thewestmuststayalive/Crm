@@ -88,6 +88,11 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kunder"
         </div>
       </div>
       <CustomerTabs />
+      {typeof sp.besked === "string" && (
+        <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {sp.besked}
+        </p>
+      )}
 
       <form className="flex flex-wrap gap-2" role="search">
         <label htmlFor="q" className="sr-only">

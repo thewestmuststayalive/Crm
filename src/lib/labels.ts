@@ -1,4 +1,4 @@
-import type { ActivityType, ContactStatus, DealStage, LeadSource } from "@/db/schema";
+import type { ActivityType, ContactStatus, DealStatus, LeadSource } from "@/db/schema";
 
 export const STATUS_LABELS: Record<ContactStatus, string> = {
   LEAD: "Lead",
@@ -35,23 +35,18 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
 /** Aktivitetstyper brugeren selv kan vælge (SYSTEM oprettes automatisk). */
 export const USER_ACTIVITY_TYPES = ["NOTE", "CALL", "EMAIL", "MEETING"] as const satisfies readonly ActivityType[];
 
-export const STAGE_LABELS: Record<DealStage, string> = {
-  NEW: "Ny",
-  CONTACTED: "Kontaktet",
-  PROPOSAL: "Tilbud sendt",
+export const DEAL_STATUS_LABELS: Record<DealStatus, string> = {
+  OPEN: "Åben",
   WON: "Vundet",
   LOST: "Tabt",
 };
 
-export const STAGE_STYLES: Record<DealStage, string> = {
-  NEW: "bg-sky-50 text-sky-800",
-  CONTACTED: "bg-indigo-50 text-indigo-800",
-  PROPOSAL: "bg-amber-50 text-amber-800",
+/** Farve på fase-mærker efter om fasen er åben, vundet eller tabt. */
+export const DEAL_STATUS_STYLES: Record<DealStatus, string> = {
+  OPEN: "bg-sky-50 text-sky-800",
   WON: "bg-emerald-50 text-emerald-800",
   LOST: "bg-slate-100 text-slate-600",
 };
-
-export const OPEN_STAGES = ["NEW", "CONTACTED", "PROPOSAL"] as const satisfies readonly DealStage[];
 
 const kr = new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK", maximumFractionDigits: 0 });
 export function formatKr(value: number) {

@@ -71,6 +71,41 @@
       "when": 1795279085822,
       "tag": "0009_automations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795280089340,
+      "tag": "0010_pipelines",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795280111151,
+      "tag": "0011_pipelines_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795280575762,
+      "tag": "0012_custom_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795280807775,
+      "tag": "0013_quotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795281449303,
+      "tag": "0014_reviews_gdpr",
+      "breakpoints": true
     }
   ]
 }

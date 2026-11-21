@@ -100,10 +100,36 @@ Domæner er tjekket via DNS/RDAP (nov. 2026). ".dk ledig" skal bekræftes hos Pu
 | SMS | Dansk SMS-gateway | Pr. besked |
 | e-conomic | e-conomic API | Gratis (kræver CVR) |
 
-## 5. Det skal du beslutte
+## 5. Beslutninger
 
-1. **Navn:** Kundespor eller et af de andre?
-2. **Rækkefølge:** brand + fase A først (anbefalet)?
+1. **Navn:** Kundespor ✔
+2. **Rækkefølge:** brand + fase A først ✔ (færdig, nov. 2026)
+3. **e-conomic:** udskudt til senere.
+
+## 6. Hvad konkurrenterne har, som Kundespor mangler (nov. 2026)
+
+| # | Funktion | Hvem har det | Kundesporets bud | Indsats |
+| - | -------- | ------------ | ---------------- | ------- |
+| 1 | **Egne felter og egne pipeline-faser / flere pipelines** ✔ | Alle (Pipedrive, HubSpot Starter, Bigin, Zoho) | Pr. firma, så hvert firma kan have sin egen salgsproces | Mellem |
+| 2 | **Tilbud med online accept og underskrift** ✔ | Pipedrive Smart Docs, HubSpot quotes | Pænt tilbud som link, kunden accepterer med navn → deal vundet | Mellem |
+| 3 | **E-mail på kundekortet** (sende, modtage, skabeloner, åbningssporing) | HubSpot (gratis), Pipedrive, Bigin | Send fra Kundespor; svar lander via en unik svar-adresse – ingen tung Google-godkendelse | Stor |
+| 4 | **Mødebooking-link** | HubSpot, Pipedrive Scheduler | Kunden booker selv tid; mødet lander på kundekortet | Mellem |
+| 5 | **Chat-widget på hjemmesiden** | HubSpot live chat, Pipedrive LeadBooster | Chatten lander i den samme indbakke som Messenger/Instagram | Mellem |
+| 6 | **AI-assistent** (næste skridt, svarforslag, opsummering) | Pipedrive AI Sales Assistant/Nova, Kommo AI agent, Zoho Zia | På dansk; du godkender altid før afsendelse | Mellem |
+| 7 | **Mobil-app med push** | Alle | Installérbar app (PWA) med push-notifikationer | Lille–mellem |
+| 8 | **Anmeldelser efter salg** (Google/Trustpilot) ✔ | Keap, Podium; HubSpot via Trustpilot-integration | Automatisk invitation, når en deal vindes | Lille |
+| 9 | **GDPR-værktøjer** (indsigt, sletning, samtykke, automatisk oprydning) ✔ | Delvist hos de store | Ét klik: eksportér/slet en persons data; samtykke-felt | Lille |
+| 10 | **Masseudsendelse** (nyhedsbrev/SMS til et segment) | Kommo broadcasts, Pipedrive Campaigns | Kun til kontakter med samtykke | Mellem |
+| 11 | **API, webhooks og Zapier** | Alle | Forbind Kundespor med alt andet | Mellem |
+| 12 | **Salgsmål og prognose** | Pipedrive goals, HubSpot forecasts | Mål pr. firma og pr. medarbejder | Lille–mellem |
+| 13 | **Filer på kundekortet** | Alle | Vedhæft kontrakter, billeder, tilbud | Lille |
+| 14 | **Telefoni** (ring fra CRM, optag) | Bigin, Pipedrive | Senere – kræver telefoniudbyder | Stor |
+
+**Det har vi, som de ikke har:** flere firmaer under ét login, "Venter på svar" med målt svartid, annoncekroner koblet til vundne kroner, CVR-opslag med reklamebeskyttelse, alt på dansk.
+
+**Fase B (færdig, nov. 2026):** 1 (egne felter + pipelines), 2 (tilbud), 8 (anmeldelser) og 9 (GDPR). ✔ markerer det, der er bygget.
+
+**Forslag til næste pakke:** 7 (mobil-app med push), 3 (e-mail på kundekortet) og 6 (AI-assistent).
 
 ---
 
@@ -120,5 +146,11 @@ Domæner er tjekket via DNS/RDAP (nov. 2026). ".dk ledig" skal bekræftes hos Pu
 - [AI i CRM (Capterra)](https://capterra.com/resources/crm-software-with-ai-features-guide) · [Bedste AI-CRM 2026 (Nutshell)](https://www.nutshell.com/pt/blog/best-ai-crms)
 - [e-conomic API (Apideck)](https://www.apideck.com/blog/how-to-integrate-with-the-e-conomic-api) · [HubSpot–e-conomic integration](https://ecosystem.hubspot.com/marketplace/apps/hubspot-to-economic-622089)
 - [CVR hos Erhvervsstyrelsen](https://erhvervsstyrelsen.dk/hent-oplysninger-fra-cvr)
+- [HubSpot gratis CRM](https://hubspot.com/products/crm/free) · [Bedste gratis CRM 2026 (TechRadar)](https://www.techradar.com/best/best-free-crm-software)
+- [Pipedrive-funktioner 2026 (ZoomInfo)](https://pipeline.zoominfo.com/sales/pipedrive-features) · [Pipedrive produktopdateringer](https://www.pipedrive.com/en/product-updates) · [Pipedrive salgsdokumenter](https://support.pipedrive.com/en/category/features/sales-documents)
+- [Kommo broadcasts](https://www.kommo.com/blog/broadcast-message/) · [Kommo-opdateringer](https://www.kommo.com/blog/kommo-update/)
+- [Bigin by Zoho – funktioner](https://www.bigin.com/features/) · [Bigin Q1 2026](https://www.zoho.com/blog/bigin/q1_2026.html) · [Bigin AI](https://www.zoho.com/blog/bigin/meet-new-ai-features.html)
+- [Vigtigste CRM-funktioner for små virksomheder (Nutshell)](https://www.nutshell.com/?p=1830) · [G2: funktioner brugerne værdsætter](https://learn.g2.com/crm-software-features)
+- [Anmeldelser efter salg (Salesforce)](https://www.salesforce.com/blog/get-reviews-for-your-small-business/) · [Trustpilot–HubSpot](https://business.trustpilot.com/partners/integrations/partner/hubspot)
 
 *Priser er indsamlet fra tredjepartskilder og leverandørsider i 2026 og kan have ændret sig.*

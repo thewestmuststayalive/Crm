@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { contactStatusEnum, type ContactStatus } from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth";
+import { formatCustomValue, getCustomFields } from "@/lib/custom-fields";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { formatDateTime, SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { likePattern } from "@/lib/validation";
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       company: schema.companies.name,
       owner: schema.users.name,
       createdAt: schema.contacts.createdAt,
+      custom: schema.contacts.custom,
     })
     .from(schema.contacts)
     .leftJoin(schema.companies, eq(schema.companies.id, schema.contacts.companyId))
@@ -49,8 +51,9 @@ export async function GET(request: NextRequest) {
     .orderBy(desc(schema.contacts.createdAt))
     .limit(50_000);
 
+  const customFields = await getCustomFields(workspace.id, "CONTACT");
   const csv = toCsv(
-    ["Navn", "Stilling", "E-mail", "Telefon", "Status", "Kilde", "Virksomhed", "Ansvarlig", "Oprettet"],
+    ["Navn", "Stilling", "E-mail", "Telefon", "Status", "Kilde", "Virksomhed", "Ansvarlig", "Oprettet", ...customFields.map((f) => f.label)],
     rows.map((r) => [
       r.name,
       r.title,
@@ -61,6 +64,7 @@ export async function GET(request: NextRequest) {
       r.company,
       r.owner,
       formatDateTime(r.createdAt),
+      ...customFields.map((f) => formatCustomValue(f, r.custom[f.id])),
     ]),
   );
   const date = new Date().toISOString().slice(0, 10);

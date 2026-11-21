@@ -1,25 +1,37 @@
-import { and, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonClass } from "@/components/styles";
+import { buttonClass, cx } from "@/components/styles";
 import { db, schema } from "@/db";
-import { dealStageEnum } from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth";
-import { formatKr, OPEN_STAGES } from "@/lib/labels";
+import { formatKr } from "@/lib/labels";
+import { getPipelines } from "@/lib/pipelines";
+import { hasRole } from "@/lib/roles";
 import { Kanban } from "./kanban";
 
 export const metadata: Metadata = { title: "Pipeline" };
 
 export default async function PipelinePage({ searchParams }: PageProps<"/pipeline">) {
   const { user, workspace } = await requireWorkspace();
-  const { mine } = await searchParams;
-  const onlyMine = mine === "1";
+  const sp = await searchParams;
+  const onlyMine = sp.mine === "1";
+  const pipelines = await getPipelines(workspace.id);
+  const pipeline = pipelines.find((p) => p.id === sp.pipeline) ?? pipelines[0];
 
-  // Åbne deals + deals lukket inden for de seneste 30 dage.
+  const href = (params: { pipeline?: string; mine?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params.pipeline && params.pipeline !== pipelines[0]?.id) q.set("pipeline", params.pipeline);
+    if (params.mine) q.set("mine", "1");
+    const s = q.toString();
+    return s ? `/pipeline?${s}` : "/pipeline";
+  };
+
+  // Åbne deals + deals lukket inden for de seneste 30 dage, i den valgte pipeline.
   const filters: (SQL | undefined)[] = [
     eq(schema.deals.workspaceId, workspace.id),
-    or(inArray(schema.deals.stage, [...OPEN_STAGES]), gte(schema.deals.closedAt, sql`now() - interval '30 days'`)),
+    eq(schema.deals.pipelineId, pipeline.id),
+    or(eq(schema.deals.status, "OPEN"), gte(schema.deals.closedAt, sql`now() - interval '30 days'`)),
   ];
   if (onlyMine) filters.push(eq(schema.deals.ownerId, user.id));
 
@@ -29,7 +41,8 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
       id: schema.deals.id,
       title: schema.deals.title,
       value: schema.deals.value,
-      stage: schema.deals.stage,
+      stageId: schema.deals.stageId,
+      status: schema.deals.status,
       expectedCloseDate: schema.deals.expectedCloseDate,
       contactName: schema.contacts.name,
       companyName: schema.companies.name,
@@ -43,7 +56,7 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
     .orderBy(desc(schema.deals.updatedAt))
     .limit(500);
 
-  const openValue = deals.filter((d) => (OPEN_STAGES as readonly string[]).includes(d.stage)).reduce((s, d) => s + d.value, 0);
+  const openValue = deals.filter((d) => d.status === "OPEN").reduce((s, d) => s + d.value, 0);
 
   return (
     <div className="space-y-5">
@@ -51,19 +64,47 @@ export default async function PipelinePage({ searchParams }: PageProps<"/pipelin
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Pipeline</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Åben pipeline: <span className="font-medium text-slate-800">{formatKr(openValue)}</span> · Træk et kort for at skifte fase. Vundne og tabte vises i 30 dage.
+            Åben pipeline: <span className="font-medium text-slate-800">{formatKr(openValue)}</span> · Træk et kort for
+            at skifte fase. Vundne og tabte vises i 30 dage.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href={onlyMine ? "/pipeline" : "/pipeline?mine=1"} className={buttonClass("secondary")}>
+        <div className="flex flex-wrap gap-2">
+          {hasRole(workspace.role, "ADMIN") && (
+            <Link href="/indstillinger/salgsfaser" className={buttonClass("secondary")}>
+              Tilpas faser
+            </Link>
+          )}
+          <Link href={href({ pipeline: pipeline.id, mine: !onlyMine })} className={buttonClass("secondary")}>
             {onlyMine ? "Vis alle" : "Kun mine"}
           </Link>
-          <Link href="/pipeline/ny" className={buttonClass()}>
+          <Link href={`/pipeline/ny?pipeline=${pipeline.id}`} className={buttonClass()}>
             Ny deal
           </Link>
         </div>
       </div>
-      <Kanban deals={deals} stages={[...dealStageEnum.enumValues]} />
+
+      {pipelines.length > 1 && (
+        <nav className="flex gap-4 overflow-x-auto border-b border-slate-200 whitespace-nowrap" aria-label="Pipelines">
+          {pipelines.map((p) => (
+            <Link
+              key={p.id}
+              href={href({ pipeline: p.id, mine: onlyMine })}
+              className={cx(
+                "-mb-px border-b-2 px-1 pb-2 text-sm font-medium",
+                p.id === pipeline.id ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800",
+              )}
+            >
+              {p.name}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      <Kanban
+        key={pipeline.id}
+        deals={deals}
+        stages={pipeline.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind }))}
+      />
     </div>
   );
 }

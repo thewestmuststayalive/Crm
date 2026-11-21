@@ -17,8 +17,8 @@ export const AUTOMATIONS: Record<
     dayOptions: [1, 2, 3, 5, 7, 14],
   },
   PROPOSAL_FOLLOWUP: {
-    title: "Opfølgning på tilbud",
-    description: (d) => `Når en deal har stået i "Tilbud sendt" i ${d} dage uden aktivitet, får den ansvarlige en opgave om at ringe.`,
+    title: "Deals uden fremdrift",
+    description: (d) => `Når en åben deal ikke har haft aktivitet i ${d} dage, får den ansvarlige en opgave om at følge op.`,
     defaultDays: 5,
     dayOptions: [2, 3, 5, 7, 10, 14],
   },
@@ -71,11 +71,11 @@ async function staleLeads(workspaceId: string, days: number) {
 async function proposalFollowup(workspaceId: string, days: number) {
   const r = await db.execute(sql`
     insert into tasks (workspace_id, title, due_date, assignee_id, deal_id, contact_id)
-    select d.workspace_id, 'Følg op på tilbud: ' || d.title, (now() at time zone 'Europe/Copenhagen')::date,
+    select d.workspace_id, 'Følg op på deal: ' || d.title, (now() at time zone 'Europe/Copenhagen')::date,
            d.owner_id, d.id, d.contact_id
     from deals d
     where d.workspace_id = ${workspaceId}
-      and d.stage = 'PROPOSAL'
+      and d.status = 'OPEN'
       and greatest(
             d.updated_at,
             coalesce((select max(a.created_at) from activities a where a.deal_id = d.id and a.author_id is not null), d.updated_at),
@@ -95,7 +95,7 @@ async function closeDatePassed(workspaceId: string) {
            (now() at time zone 'Europe/Copenhagen')::date, d.owner_id, d.id, d.contact_id
     from deals d
     where d.workspace_id = ${workspaceId}
-      and d.stage in ('NEW', 'CONTACTED', 'PROPOSAL')
+      and d.status = 'OPEN'
       and d.expected_close_date < (now() at time zone 'Europe/Copenhagen')::date
       and not exists (select 1 from tasks t where t.deal_id = d.id and t.completed_at is null)
     order by d.expected_close_date

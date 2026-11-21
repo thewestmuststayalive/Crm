@@ -92,9 +92,11 @@ export async function getDealsFor(workspaceId: string, target: { contactId: stri
       id: schema.deals.id,
       title: schema.deals.title,
       value: schema.deals.value,
-      stage: schema.deals.stage,
+      status: schema.deals.status,
+      stageName: schema.pipelineStages.name,
     })
     .from(schema.deals)
+    .innerJoin(schema.pipelineStages, eq(schema.pipelineStages.id, schema.deals.stageId))
     .where(
       and(
         eq(schema.deals.workspaceId, workspaceId),

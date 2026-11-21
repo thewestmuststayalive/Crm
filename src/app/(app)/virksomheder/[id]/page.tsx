@@ -10,6 +10,8 @@ import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
+import { getCustomFields } from "@/lib/custom-fields";
+import { CustomFieldRows } from "@/components/custom-field-rows";
 import { DealsCard } from "@/components/deals-card";
 import { TaskForm } from "@/components/task-form";
 import { TaskList } from "@/components/task-list";
@@ -27,6 +29,7 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
   const { user, workspace } = await requireWorkspace();
   const company = await getCompany(workspace.id, id);
   if (!company) notFound();
+  const customFields = await getCustomFields(workspace.id, "COMPANY");
 
   const [contacts, ownerName] = await Promise.all([
     db
@@ -101,6 +104,7 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
                 )}
               </DetailRow>
               <DetailRow label="Adresse">{company.address}</DetailRow>
+              <CustomFieldRows fields={customFields} values={company.custom} />
               <DetailRow label="Ansvarlig">{ownerName}</DetailRow>
             </dl>
           </Card>

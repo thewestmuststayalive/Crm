@@ -3,11 +3,14 @@ import type { NextRequest } from "next/server";
 import { db, schema } from "@/db";
 import { runAutomations } from "@/lib/automations";
 import { sendDailyDigests } from "@/lib/digest";
+import { cleanupStaleLeads } from "@/lib/gdpr";
 import { getMetaConfig } from "@/lib/meta/graph";
 import { syncInsights } from "@/lib/meta/insights";
+import { sendDueReviewRequests } from "@/lib/reviews";
 
 // Daglig kørsel (Vercel Cron, se vercel.json) med "Authorization: Bearer <CRON_SECRET>":
-// 1) automatiske opfølgningsregler, 2) annoncedata fra Meta, 3) daglig e-mail-oversigt.
+// 1) automatiske opfølgningsregler, 2) annoncedata fra Meta, 3) anmodninger om anmeldelse,
+// 4) sletning af gamle leads (hvor det er slået til), 5) daglig e-mail-oversigt.
 
 export const maxDuration = 60;
 
@@ -46,6 +49,18 @@ export async function GET(request: NextRequest) {
       }
     }
     report.adRows = rows;
+  }
+
+  try {
+    report.reviewRequests = await sendDueReviewRequests();
+  } catch (error) {
+    console.error("Anmodninger om anmeldelse fejlede", error);
+  }
+
+  try {
+    report.leadsDeleted = await cleanupStaleLeads();
+  } catch (error) {
+    console.error("Sletning af gamle leads fejlede", error);
   }
 
   try {

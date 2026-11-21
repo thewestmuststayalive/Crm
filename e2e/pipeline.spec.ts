@@ -32,14 +32,14 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
   // afhænger af scroll-position, når kolonnen indeholder mange kort fra andre tests.
   await page.goto("/pipeline");
   const card = page.locator("li", { hasText: dealTitle });
-  await expect(page.locator('section[data-stage="NEW"]')).toContainText(dealTitle);
+  await expect(page.locator('section[data-stage-name="Ny"]')).toContainText(dealTitle);
   await expect(page.locator("[data-kanban]")).toHaveAttribute("data-ready", "true");
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await card.dispatchEvent("dragstart", { dataTransfer });
-  await page.locator('section[data-stage="WON"]').dispatchEvent("drop", { dataTransfer });
-  await expect(page.locator('section[data-stage="WON"]')).toContainText(dealTitle);
+  await page.locator('section[data-stage-name="Vundet"]').dispatchEvent("drop", { dataTransfer });
+  await expect(page.locator('section[data-stage-name="Vundet"]')).toContainText(dealTitle);
   await page.reload();
-  await expect(page.locator('section[data-stage="WON"]')).toContainText(dealTitle);
+  await expect(page.locator('section[data-stage-name="Vundet"]')).toContainText(dealTitle);
 
   // Kontakten er nu kunde, og faseskiftet står på tidslinjen
   await page.goto(dealUrl);
@@ -50,7 +50,7 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
   // Skift fase via dropdown på dealsiden
   await page.goto(dealUrl);
   await page.waitForLoadState("networkidle"); // vent til dropdown'en er interaktiv
-  await page.selectOption("#stage-select", "LOST");
+  await page.selectOption("#stage-select", { label: "Tabt" });
   await expect(page.locator("header")).toContainText("Tabt");
 });
 

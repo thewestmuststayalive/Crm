@@ -12,7 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test:e2e": "playwright test",
-    "vercel-build": "if [ -n \"$DATABASE_URL\" ]; then drizzle-kit migrate; else echo \"DATABASE_URL mangler - kobl databasen på i Vercel og deploy igen\"; fi && next build"
+    "vercel-build": "if [ -z \"$DATABASE_URL\" ]; then echo \"DATABASE_URL mangler - kobl databasen på i Vercel og deploy igen\"; elif [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate; else echo \"Preview: databasen migreres kun ved produktions-deploy\"; fi && next build"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

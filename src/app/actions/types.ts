@@ -5,7 +5,11 @@ export type ActionState = {
   values?: Record<string, string>;
 };
 
-/** Plukker de angivne tekstfelter ud af formularen. */
+/** Plukker de angivne tekstfelter ud af formularen – inkl. egne felter (cf_*). */
 export function pickValues(formData: FormData, keys: string[]): Record<string, string> {
-  return Object.fromEntries(keys.map((k) => [k, String(formData.get(k) ?? "")]));
+  const picked: Record<string, string> = Object.fromEntries(keys.map((k) => [k, String(formData.get(k) ?? "")]));
+  for (const [k, v] of formData.entries()) {
+    if (k.startsWith("cf_") && typeof v === "string") picked[k] = v;
+  }
+  return picked;
 }

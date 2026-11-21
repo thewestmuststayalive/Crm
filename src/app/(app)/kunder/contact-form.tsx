@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import type { ActionState } from "@/app/actions/types";
+import { CustomFieldInputs } from "@/components/custom-field-inputs";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 import { buttonClass } from "@/components/styles";
 import { Field, FormMessage, Input, Select, SubmitButton } from "@/components/ui";
 import { SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 
 type Option = { id: string; name: string };
 export type ContactFormValues = {
+  custom?: Record<string, unknown> | null;
   name?: string;
   email?: string | null;
   phone?: string | null;
@@ -21,6 +24,7 @@ export type ContactFormValues = {
 
 export function ContactForm({
   action,
+  customFields = [],
   initial,
   companies,
   members,
@@ -28,6 +32,7 @@ export function ContactForm({
   cancelHref,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  customFields?: CustomFieldDef[];
   initial: ContactFormValues;
   companies: Option[];
   members: Option[];
@@ -94,6 +99,7 @@ export function ContactForm({
           ))}
         </Select>
       </Field>
+      <CustomFieldInputs fields={customFields} values={initial.custom} submitted={state.values} />
       <div className="space-y-3 sm:col-span-2">
         <FormMessage state={state} />
         <div className="flex gap-2">

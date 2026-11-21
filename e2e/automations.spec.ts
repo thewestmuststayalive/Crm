@@ -16,7 +16,7 @@ test("automatiske regler opretter opfølgning på glemte leads og tilbud – én
 
   await page.goto("/pipeline/ny");
   await page.fill("#d-title", deal);
-  await page.selectOption("#d-stage", "PROPOSAL");
+  await page.selectOption("#d-stage", { label: "Tilbud sendt" });
   await page.getByRole("button", { name: "Opret deal" }).click();
   await expect(page.locator("h1")).toHaveText(deal);
 
@@ -38,7 +38,7 @@ test("automatiske regler opretter opfølgning på glemte leads og tilbud – én
 
   await page.goto("/opgaver");
   await expect(page.locator("main")).toContainText(`Følg op på ${lead}`);
-  await expect(page.locator("main")).toContainText(`Følg op på tilbud: ${deal}`);
+  await expect(page.locator("main")).toContainText(`Følg op på deal: ${deal}`);
 });
 
 test("en slået-fra regel opretter ingen opgaver", async ({ page }) => {

@@ -1,11 +1,12 @@
 import "server-only";
-import { and, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, eq, ilike, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { LeadSource } from "@/db/schema";
 import { markContactAwaiting } from "./awaiting";
 import { logEvent } from "./crm";
-import { OPEN_STAGES, todayIso } from "./labels";
+import { todayIso } from "./labels";
 import { notify } from "./notify";
+import { getEntryStage } from "./pipelines";
 
 export type IncomingLead = {
   workspaceId: string;
@@ -126,13 +127,14 @@ export async function ingestLead(lead: IncomingLead) {
         and(
           eq(schema.deals.workspaceId, lead.workspaceId),
           eq(schema.deals.contactId, contactId),
-          inArray(schema.deals.stage, [...OPEN_STAGES]),
+          eq(schema.deals.status, "OPEN"),
         ),
       )
       .limit(1);
     dealId = openDeal?.id ?? null;
   }
   if (lead.createDeal && !dealId) {
+    const stage = await getEntryStage(lead.workspaceId);
     const [deal] = await db
       .insert(schema.deals)
       .values({
@@ -142,6 +144,9 @@ export async function ingestLead(lead: IncomingLead) {
         companyId,
         ownerId: assigneeId,
         source: lead.source,
+        pipelineId: stage.pipelineId,
+        stageId: stage.id,
+        status: stage.kind,
       })
       .returning({ id: schema.deals.id });
     dealId = deal.id;

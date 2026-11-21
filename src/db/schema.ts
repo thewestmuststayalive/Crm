@@ -47,6 +47,20 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   /** Mål for svartid i minutter. Henvendelser der har ventet længere, fremhæves. */
   responseTargetMinutes: integer("response_target_minutes").notNull().default(120),
+  // Firmaoplysninger, der vises på tilbud og e-mails til kunder.
+  cvr: text("cvr"),
+  address: text("address"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  quoteTerms: text("quote_terms"),
+  // Anmodning om anmeldelse efter en vundet deal.
+  reviewEnabled: boolean("review_enabled").notNull().default(false),
+  reviewUrl: text("review_url"),
+  reviewDelayDays: integer("review_delay_days").notNull().default(3),
+  reviewMessage: text("review_message"),
+  /** Slet leads uden aktivitet efter så mange måneder (GDPR-dataminimering). Null = slået fra. */
+  leadRetentionMonths: integer("lead_retention_months"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -112,6 +126,8 @@ export const companies = pgTable(
     website: text("website"),
     address: text("address"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /** Værdier for firmaets egne felter, nøglet på felt-id. */
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [index("companies_workspace_name_idx").on(t.workspaceId, t.name)],
@@ -135,6 +151,9 @@ export const contacts = pgTable(
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     /** Sat når kontakten har henvendt sig og venter på at blive kontaktet; nulstilles når nogen svarer. */
     awaitingSince: timestamp("awaiting_since", { withTimezone: true }),
+    /** Personen har frabedt sig e-mails (fx anmodninger om anmeldelse). */
+    emailOptOutAt: timestamp("email_opt_out_at", { withTimezone: true }),
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
@@ -144,8 +163,42 @@ export const contacts = pgTable(
   ],
 );
 
-export const dealStageEnum = pgEnum("deal_stage", ["NEW", "CONTACTED", "PROPOSAL", "WON", "LOST"]);
-export type DealStage = (typeof dealStageEnum.enumValues)[number];
+/** Om en deal er åben, vundet eller tabt. Afledt af den fase, dealen står i. */
+export const dealStatusEnum = pgEnum("deal_status", ["OPEN", "WON", "LOST"]);
+export type DealStatus = (typeof dealStatusEnum.enumValues)[number];
+
+/** En salgsproces. Hvert firma har mindst én ("Salg") og kan oprette flere. */
+export const pipelines = pgTable(
+  "pipelines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pipelines_workspace_idx").on(t.workspaceId, t.position)],
+);
+
+/** En fase i en pipeline. `kind` afgør om deals i fasen er åbne, vundne eller tabte. */
+export const pipelineStages = pgTable(
+  "pipeline_stages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    pipelineId: uuid("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    kind: dealStatusEnum("kind").notNull().default("OPEN"),
+  },
+  (t) => [index("pipeline_stages_pipeline_idx").on(t.pipelineId, t.position)],
+);
 
 /** En salgsmulighed i pipelinen. Værdi i hele kroner. */
 export const deals = pgTable(
@@ -157,7 +210,13 @@ export const deals = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     value: integer("value").notNull().default(0),
-    stage: dealStageEnum("stage").notNull().default("NEW"),
+    pipelineId: uuid("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "restrict" }),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => pipelineStages.id, { onDelete: "restrict" }),
+    status: dealStatusEnum("status").notNull().default("OPEN"),
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
@@ -165,10 +224,12 @@ export const deals = pgTable(
     expectedCloseDate: date("expected_close_date"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     lostReason: text("lost_reason"),
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
-    index("deals_workspace_stage_idx").on(t.workspaceId, t.stage),
+    index("deals_workspace_status_idx").on(t.workspaceId, t.status),
+    index("deals_stage_idx").on(t.stageId),
     index("deals_contact_idx").on(t.contactId),
     index("deals_company_idx").on(t.companyId),
   ],
@@ -470,6 +531,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "TASK_ASSIGNED",
   "DEAL_WON",
   "MEMBER_ADDED",
+  "QUOTE_VIEWED",
+  "QUOTE_ACCEPTED",
+  "QUOTE_DECLINED",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -509,4 +573,124 @@ export const automationRules = pgTable(
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.type] })],
+);
+
+export const customFieldEntityEnum = pgEnum("custom_field_entity", ["CONTACT", "COMPANY", "DEAL"]);
+export type CustomFieldEntity = (typeof customFieldEntityEnum.enumValues)[number];
+export const customFieldTypeEnum = pgEnum("custom_field_type", ["TEXT", "NUMBER", "DATE", "SELECT", "CHECKBOX"]);
+export type CustomFieldType = (typeof customFieldTypeEnum.enumValues)[number];
+
+/** Firmaets egne felter. Værdierne ligger i kolonnen `custom` på kontakter, virksomheder og deals. */
+export const customFields = pgTable(
+  "custom_fields",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    entity: customFieldEntityEnum("entity").notNull(),
+    label: text("label").notNull(),
+    type: customFieldTypeEnum("type").notNull().default("TEXT"),
+    /** Valgmuligheder for typen SELECT. */
+    options: jsonb("options").$type<string[]>().notNull().default([]),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("custom_fields_workspace_idx").on(t.workspaceId, t.entity, t.position)],
+);
+
+export const quoteStatusEnum = pgEnum("quote_status", ["DRAFT", "SENT", "ACCEPTED", "DECLINED"]);
+export type QuoteStatus = (typeof quoteStatusEnum.enumValues)[number];
+
+/** Et tilbud på en deal. Kunden ser og accepterer det via et hemmeligt link (token). */
+export const quotes = pgTable(
+  "quotes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id")
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    intro: text("intro"),
+    terms: text("terms"),
+    status: quoteStatusEnum("status").notNull().default("DRAFT"),
+    validUntil: date("valid_until"),
+    /** Momssats i procent (25 eller 0). */
+    vatRate: integer("vat_rate").notNull().default(25),
+    token: text("token").notNull().unique(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedName: text("accepted_name"),
+    acceptedIpHash: text("accepted_ip_hash"),
+    declinedAt: timestamp("declined_at", { withTimezone: true }),
+    declineReason: text("decline_reason"),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("quotes_workspace_number_idx").on(t.workspaceId, t.number),
+    index("quotes_deal_idx").on(t.dealId),
+  ],
+);
+
+/** En linje på et tilbud. Priser i øre, ekskl. moms. */
+export const quoteLines = pgTable(
+  "quote_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    quoteId: uuid("quote_id")
+      .notNull()
+      .references(() => quotes.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 2 }).notNull().default("1"),
+    unit: text("unit"),
+    unitPriceOre: integer("unit_price_ore").notNull().default(0),
+    discountPct: numeric("discount_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+  },
+  (t) => [index("quote_lines_quote_idx").on(t.quoteId, t.position)],
+);
+
+export const reviewRequestStatusEnum = pgEnum("review_request_status", [
+  "SCHEDULED",
+  "SENT",
+  "CLICKED",
+  "SKIPPED",
+]);
+export type ReviewRequestStatus = (typeof reviewRequestStatusEnum.enumValues)[number];
+
+/** Anmodning om en anmeldelse, planlagt når en deal vindes og sendt af den daglige kørsel. */
+export const reviewRequests = pgTable(
+  "review_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    status: reviewRequestStatusEnum("status").notNull().default("SCHEDULED"),
+    /** Hemmeligt id i linkene i e-mailen (klik og afmelding). */
+    token: text("token").notNull().unique(),
+    sendAt: timestamp("send_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    clickedAt: timestamp("clicked_at", { withTimezone: true }),
+    skipReason: text("skip_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("review_requests_due_idx").on(t.status, t.sendAt),
+    index("review_requests_workspace_idx").on(t.workspaceId, t.createdAt),
+    index("review_requests_contact_idx").on(t.contactId),
+  ],
 );

@@ -2,12 +2,18 @@
 
 import { useTransition } from "react";
 import { moveDeal } from "@/app/actions/deals";
-import type { DealStage } from "@/db/schema";
 import { Select } from "@/components/ui";
-import { STAGE_LABELS } from "@/lib/labels";
 
 /** Skift fase direkte fra dealsiden (virker også på mobil, hvor træk-og-slip ikke gør). */
-export function StageSelect({ dealId, stage }: { dealId: string; stage: DealStage }) {
+export function StageSelect({
+  dealId,
+  stageId,
+  stages,
+}: {
+  dealId: string;
+  stageId: string;
+  stages: { id: string; name: string }[];
+}) {
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex items-center gap-2">
@@ -16,17 +22,17 @@ export function StageSelect({ dealId, stage }: { dealId: string; stage: DealStag
       </label>
       <Select
         id="stage-select"
-        key={stage}
-        defaultValue={stage}
+        key={stageId}
+        defaultValue={stageId}
         disabled={pending}
         onChange={(e) => {
           const next = e.target.value;
           startTransition(() => moveDeal(dealId, next));
         }}
       >
-        {Object.entries(STAGE_LABELS).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
+        {stages.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
           </option>
         ))}
       </Select>

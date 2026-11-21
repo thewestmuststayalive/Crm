@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useActionState, useRef, useState, useTransition } from "react";
 import { findCompanyInCvr, type CvrResult } from "@/app/actions/cvr";
 import type { ActionState } from "@/app/actions/types";
+import { CustomFieldInputs } from "@/components/custom-field-inputs";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 import { buttonClass } from "@/components/styles";
 import { Button, Field, FormMessage, Input, Select, SubmitButton } from "@/components/ui";
 
 type Option = { id: string; name: string };
 export type CompanyFormValues = {
+  custom?: Record<string, unknown> | null;
   name?: string;
   cvr?: string | null;
   email?: string | null;
@@ -20,12 +23,14 @@ export type CompanyFormValues = {
 
 export function CompanyForm({
   action,
+  customFields = [],
   initial,
   members,
   submitLabel,
   cancelHref,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  customFields?: CustomFieldDef[];
   initial: CompanyFormValues;
   members: Option[];
   submitLabel: string;
@@ -132,6 +137,7 @@ export function CompanyForm({
             <Input id="co-address" name="address" defaultValue={v.address ?? ""} maxLength={300} />
           </Field>
         </div>
+        <CustomFieldInputs fields={customFields} values={initial.custom} submitted={state.values} />
         <div className="space-y-3 sm:col-span-2">
           <FormMessage state={state} />
           <div className="flex gap-2">
