@@ -8,6 +8,9 @@ import { requireWorkspace } from "@/lib/auth";
 import { BOOKING_STATUS_LABELS, formatPlate, getTodaysBookings } from "@/lib/booking";
 import { getDashboard } from "@/lib/dashboard";
 import { getModules } from "@/lib/modules";
+import { UsageBar } from "../tid/time-components";
+import { currentMonth, formatHM, formatMonth } from "@/lib/duration";
+import { getRetainerOverview } from "@/lib/time-tracking";
 import { localTime } from "@/lib/time";
 import { formatDuration } from "@/lib/waiting";
 import { formatDate, formatIsoDate, formatKr, SOURCE_LABELS, todayIso } from "@/lib/labels";
@@ -51,7 +54,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const all = visning === "alle" && memberships.length > 1;
   const workspaceIds = all ? memberships.map((m) => m.id) : [workspace.id];
   const d = await getDashboard(workspaceIds, user.id);
-  const showBookings = !all && (await getModules(workspace.id)).booking;
+  const modules = all ? { booking: false, agency: false } : await getModules(workspace.id);
+  const showBookings = modules.booking;
+  const month = currentMonth();
+  const retainers = modules.agency ? (await getRetainerOverview(workspace.id, month, true)).slice(0, 6) : [];
   const bookingsToday = showBookings ? await getTodaysBookings(workspace.id) : [];
   const today = todayIso();
 
@@ -107,6 +113,29 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           }
         />
       </div>
+
+      {modules.agency && retainers.length > 0 && (
+        <Card title={`Retainers i ${formatMonth(month)}`}>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Retainers">
+            {retainers.map((r) => (
+              <li key={r.id} className="space-y-1">
+                <p className="flex justify-between gap-2 text-sm">
+                  <Link
+                    href={`/virksomheder/${r.companyId}`}
+                    className="truncate font-medium text-slate-900 hover:underline"
+                  >
+                    {r.companyName}
+                  </Link>
+                  <span className="shrink-0 text-slate-600">
+                    {formatHM(r.used)} / {formatHM(r.monthlyMinutes)}
+                  </span>
+                </p>
+                <UsageBar pct={r.pct} label={`${r.companyName}: ${r.pct} % brugt`} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {showBookings && (
         <Card title={`Dagens bookinger (${bookingsToday.length})`}>

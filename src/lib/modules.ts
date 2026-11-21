@@ -23,3 +23,10 @@ export async function requireBookingModule(minimum?: "ADMIN") {
   if (!(await getModules(ctx.workspace.id)).booking) notFound();
   return ctx;
 }
+
+/** Til sider og handlinger i modulet Tid og projekter. */
+export async function requireAgencyModule(minimum?: "ADMIN") {
+  const ctx = minimum ? await requireRole(minimum) : await requireWorkspace();
+  if (!(await getModules(ctx.workspace.id)).agency) notFound();
+  return ctx;
+}

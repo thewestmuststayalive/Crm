@@ -138,7 +138,7 @@ Research af bilplejesystemer (Anolla, Urable, Jobber, Mobile Tech RX) og bureaus
 | Trin | Indhold | Status |
 | ---- | ------- | ------ |
 | 1 | Ydelser og prisliste, åbningstider, kalender, onlinebooking med link og QR-kode, bekræftelse/aflysning/påmindelse på e-mail, biler på kundekortet, søgning på nummerplade | ✔ |
-| 2 | Tidsregistrering og retainers (månedligt budget med advarsel ved 80/100 %) | |
+| 2 | Tidsregistrering med stopur, retainers med månedligt timebudget og advarsel ved 80/100 %, eksport af måneden (CSV) | ✔ |
 | 3 | Før/efter-billeder, påmindelse om ny behandling, projekter med skabeloner, månedlig kunderapport | |
 
 **Udskudt:** betaling/depositum (Stripe/MobilePay), automatisk nummerpladeopslag (kræver aftale med en DMR-dataudbyder), klippekort/abonnementer, kundeportal, fakturering (e-conomic), SMS.

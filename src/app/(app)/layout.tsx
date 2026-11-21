@@ -8,7 +8,9 @@ import { requireWorkspace } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
 import { countBookingsToday } from "@/lib/booking";
 import { getModules } from "@/lib/modules";
+import { getRunningTimer } from "@/lib/time-tracking";
 import { countWaiting } from "@/lib/waiting";
+import { TimerBadge } from "./timer-badge";
 import { Nav } from "./nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -27,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     countWaiting(workspace.id),
     modules.booking ? countBookingsToday(workspace.id) : 0,
   ]);
+  const running = modules.agency ? await getRunningTimer(workspace.id, user.id) : null;
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -66,8 +69,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <Nav
           badges={{ "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday }}
-          booking={modules.booking}
+          modules={modules}
         />
+        {running?.startedAt && (
+          <TimerBadge startedAt={running.startedAt.toISOString()} label={running.companyName ?? "Intern tid"} />
+        )}
         <NotificationPoller initialUnread={notes} />
         <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
           <div className="min-w-0">

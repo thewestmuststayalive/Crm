@@ -542,6 +542,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "QUOTE_DECLINED",
   "NEW_BOOKING",
   "BOOKING_CANCELLED",
+  "RETAINER_ALERT",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -816,4 +817,61 @@ export const bookings = pgTable(
     index("bookings_contact_idx").on(t.contactId),
     index("bookings_status_start_idx").on(t.status, t.startsAt),
   ],
+);
+
+/** Registreret tid. Et kørende stopur har endedAt = null. */
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Kunden tiden er brugt på. Null = intern tid. */
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    description: text("description"),
+    /** Dansk dato, tiden hører til (bruges til uger og måneder). */
+    date: date("date").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    minutes: integer("minutes").notNull().default(0),
+    billable: boolean("billable").notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [
+    index("time_entries_workspace_date_idx").on(t.workspaceId, t.date),
+    index("time_entries_company_date_idx").on(t.companyId, t.date),
+    index("time_entries_user_idx").on(t.userId, t.date),
+  ],
+);
+
+/** Fast månedlig aftale med en kunde: timebudget og/eller pris pr. måned. */
+export const retainers = pgTable(
+  "retainers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Timebudget pr. måned i minutter. */
+    monthlyMinutes: integer("monthly_minutes").notNull(),
+    /** Pris pr. måned i øre (valgfri). */
+    monthlyPriceOre: integer("monthly_price_ore"),
+    /** Timepris for timer ud over budgettet, i øre (valgfri). */
+    hourlyRateOre: integer("hourly_rate_ore"),
+    active: boolean("active").notNull().default(true),
+    /** Seneste måned ("YYYY-MM"), der er advaret om ved 80 % og 100 %. */
+    alerted80: text("alerted_80"),
+    alerted100: text("alerted_100"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("retainers_company_idx").on(t.workspaceId, t.companyId)],
 );

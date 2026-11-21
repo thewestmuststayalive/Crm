@@ -13,6 +13,10 @@ import { requireWorkspace } from "@/lib/auth";
 import { getCustomFields } from "@/lib/custom-fields";
 import { CustomFieldRows } from "@/components/custom-field-rows";
 import { DealsCard } from "@/components/deals-card";
+import { UsageBar } from "@/app/(app)/tid/time-components";
+import { currentMonth, formatHM, formatMonth, monthRange } from "@/lib/duration";
+import { getModules } from "@/lib/modules";
+import { getCompanyRetainer, getEntries } from "@/lib/time-tracking";
 import { TaskForm } from "@/components/task-form";
 import { TaskList } from "@/components/task-list";
 import { getCompany, getDealsFor, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
@@ -46,11 +50,15 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
       .orderBy(asc(schema.contacts.name)),
     getUserName(company.ownerId),
   ]);
-  const [timeline, deals, tasks, members] = await Promise.all([
+  const agency = (await getModules(workspace.id)).agency;
+  const month = currentMonth();
+  const [timeline, deals, tasks, members, retainer, monthEntries] = await Promise.all([
     getTimeline(workspace.id, { companyId: company.id, contactIds: contacts.map((c) => c.id) }),
     getDealsFor(workspace.id, { companyId: company.id }),
     getTasks(workspace.id, { companyId: company.id }),
     getMemberOptions(workspace.id),
+    agency ? getCompanyRetainer(workspace.id, company.id, month) : null,
+    agency ? getEntries(workspace.id, monthRange(month).first, monthRange(month).last, { companyId: company.id }) : [],
   ]);
 
   return (
@@ -98,7 +106,12 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
               </DetailRow>
               <DetailRow label="Hjemmeside">
                 {company.website && (
-                  <a href={websiteHref(company.website)} target="_blank" rel="noopener noreferrer" className="underline">
+                  <a
+                    href={websiteHref(company.website)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
                     {company.website}
                   </a>
                 )}
@@ -126,13 +139,33 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
                 ))}
               </ul>
             )}
-            <Link
-              href={`/kunder/ny?virksomhed=${company.id}`}
-              className={buttonClass("secondary", "mt-3 w-full")}
-            >
+            <Link href={`/kunder/ny?virksomhed=${company.id}`} className={buttonClass("secondary", "mt-3 w-full")}>
               Tilføj kontaktperson
             </Link>
           </Card>
+          {agency && (
+            <Card title={`Tid i ${formatMonth(month)}`}>
+              <p className="text-sm text-slate-700">
+                <span className="text-lg font-semibold text-slate-900">
+                  {formatHM(monthEntries.filter((e) => e.billable).reduce((s, e) => s + e.minutes, 0))}
+                </span>{" "}
+                fakturerbare timer
+              </p>
+              {retainer ? (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm text-slate-700">
+                    {retainer.name}: {formatHM(retainer.used)} af {formatHM(retainer.monthlyMinutes)} ({retainer.pct} %)
+                  </p>
+                  <UsageBar pct={retainer.pct} label={`Retainer ${retainer.pct} % brugt`} />
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">Ingen retainer på kunden.</p>
+              )}
+              <Link href="/tid/retainers" className="mt-3 inline-block text-sm text-brand-800 underline">
+                Retainers
+              </Link>
+            </Card>
+          )}
           <DealsCard deals={deals} newHref={`/pipeline/ny?virksomhed=${company.id}`} />
           <Card title="Opgaver">
             <TaskForm members={members} defaultAssigneeId={user.id} companyId={company.id} />
