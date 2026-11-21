@@ -492,3 +492,21 @@ export const notifications = pgTable(
   },
   (t) => [index("notifications_user_idx").on(t.userId, t.readAt, t.createdAt)],
 );
+
+export const automationTypeEnum = pgEnum("automation_type", ["STALE_LEAD", "PROPOSAL_FOLLOWUP", "CLOSE_DATE_PASSED"]);
+export type AutomationType = (typeof automationTypeEnum.enumValues)[number];
+
+/** Automatiske opfølgningsregler pr. firma. Mangler en række, gælder standardindstillingen. */
+export const automationRules = pgTable(
+  "automation_rules",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    type: automationTypeEnum("type").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    days: integer("days").notNull().default(3),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.type] })],
+);

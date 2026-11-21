@@ -64,6 +64,13 @@
       "when": 1795278714337,
       "tag": "0008_waiting_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795279085822,
+      "tag": "0009_automations",
+      "breakpoints": true
     }
   ]
 }

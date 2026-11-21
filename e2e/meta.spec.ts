@@ -164,9 +164,9 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
 });
 
 test("annoncerapport viser forbrug, leads og pris pr. lead", async ({ page, request }) => {
-  const cron = await request.get("/api/cron/meta-insights", { headers: { authorization: "Bearer test-cron" } });
+  const cron = await request.get("/api/cron/daily", { headers: { authorization: "Bearer test-cron" } });
   expect(cron.status()).toBe(200);
-  expect((await request.get("/api/cron/meta-insights")).status()).toBe(401);
+  expect((await request.get("/api/cron/daily")).status()).toBe(401);
 
   await page.goto("/annoncer");
   const table = page.locator("table");

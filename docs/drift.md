@@ -59,7 +59,7 @@ Efter ændringer i miljøvariabler skal der altid deployes igen (Deployments →
 
 ## 6. Automatik
 
-- **Annoncedata** hentes én gang i døgnet om morgenen via Vercel Cron (`vercel.json`). Det virker også på Hobby.
+- **Hver morgen** (Vercel Cron, `vercel.json` → `/api/cron/daily`) kører Kundespor de automatiske opfølgningsregler, henter annoncedata fra Meta og sender den daglige oversigt på e-mail. Det virker også på Hobby. Kræver at `CRON_SECRET` er sat.
 - **Sundhedstjek:** `/api/health` svarer `{"ok":true}`, når appen kører. Kan bruges til overvågning (fx UptimeRobot).
 
 ## 7. Backup

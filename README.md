@@ -1,8 +1,8 @@
-# CRM
+# Kundespor
 
-Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma (workspace) har sine egne data og medlemmer, og du skifter mellem dem i menuen – eller ser dem samlet på dashboardet.
+*Alle kunder samlet. Ingen glemt.* Et dansk CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma (workspace) har sine egne data og medlemmer, og du skifter mellem dem i menuen – eller ser dem samlet på dashboardet.
 
-**Guides:** [Sæt i drift (Vercel + Neon)](docs/drift.md) · [Opsætning af Facebook og Instagram](docs/meta-opsaetning.md)
+**Guides:** [Sæt i drift (Vercel + Neon)](docs/drift.md) · [Opsætning af Facebook og Instagram](docs/meta-opsaetning.md) · [Brandguide](docs/brand.md) · [Strategi og konkurrenter](docs/strategi.md)
 
 ## Funktioner
 
@@ -18,6 +18,11 @@ Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma 
 | Indbakke | Messenger og Instagram Direct samlet, med svar fra CRM'et (afventer nøgler) |
 | Annoncer | Forbrug, leads, pris pr. lead og afkast pr. kampagne (afventer nøgler) |
 | Dashboard | Nøgletal for ét firma eller alle samlet |
+| Venter på svar | Ubesvarede henvendelser med ventetid, mål for svartid og målt median-svartid |
+| Notifikationer | Klokke i menuen, skrivebordsnotifikationer og e-mail ved nye leads; daglig oversigt på e-mail |
+| Automatik | Opfølgningsopgaver på glemte leads, tilbud uden svar og overskredne lukkedatoer |
+| Import og CVR | Import fra Excel/CSV med dubletkontrol; virksomhedsdata hentes fra CVR |
+| E-mail | Invitationer til medarbejdere og "glemt adgangskode" (Resend) |
 
 ## Teknologi
 
