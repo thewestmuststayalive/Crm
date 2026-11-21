@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 export const OWNER = { name: "Olivia Ejer", email: "ejer@example.com", password: "hemmelig123", company: "Firma A" };
 
@@ -13,6 +13,18 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill("#password", password);
   await page.getByRole("button", { name: "Log ind" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
+}
+
+type SentEmail = { to: string; subject: string; html: string; text: string };
+
+/** Seneste e-mail sendt til `to` via den falske Resend-server (e2e/meta-mock.ts). */
+export async function latestEmailTo(request: APIRequestContext, to: string): Promise<SentEmail & { link: string | null }> {
+  const res = await request.get("http://localhost:3999/__requests");
+  const log = (await res.json()) as { method: string; path: string; body: SentEmail }[];
+  const email = log.filter((r) => r.method === "POST" && r.path === "/emails" && r.body.to === to).at(-1);
+  if (!email) throw new Error(`Ingen e-mail sendt til ${to}`);
+  const link = email.body.text.match(/https?:\/\/\S+\/nulstil\/[A-Za-z0-9_-]+/)?.[0] ?? null;
+  return { ...email.body, link };
 }
 
 /** Vælger firma i firmavælgeren og venter på, at siden skifter. */

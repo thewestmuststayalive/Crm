@@ -43,6 +43,10 @@ export default defineConfig({
       META_OAUTH_URL: "http://localhost:3999",
       ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
       CRON_SECRET: "test-cron",
+      // E-mail sendes til den falske Resend i e2e/meta-mock.ts
+      RESEND_API_KEY: "test-resend",
+      RESEND_API_URL: "http://localhost:3999",
+      EMAIL_FROM: "Kundespor <noreply@example.com>",
     },
   },
 });

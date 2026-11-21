@@ -1,7 +1,8 @@
 import { createServer, type Server } from "node:http";
 
-// En lille falsk udgave af Metas Graph API, så hele Meta-integrationen kan testes
-// uden rigtige nøgler. Appen peges hertil med META_GRAPH_URL/META_OAUTH_URL.
+// Falske udgaver af eksterne tjenester, så alt kan testes uden rigtige nøgler:
+// Metas Graph API (META_GRAPH_URL/META_OAUTH_URL), Resend til e-mail (RESEND_API_URL)
+// og CVR-opslag (CVR_API_URL).
 
 export const META_MOCK_PORT = 3999;
 export const META_MOCK_URL = `http://localhost:${META_MOCK_PORT}`;
@@ -104,6 +105,8 @@ export function startMetaMock(): Promise<Server> {
         return send(200, { first_name: "Mads", last_name: "Messenger" });
       case "GET /IGSID_NEW":
         return send(200, { name: "Ida Insta", username: "ida" });
+      case "POST /emails":
+        return send(200, { id: `email_${log.length}` });
       case "POST /PAGE1/messages":
         outCounter++;
         return send(200, { recipient_id: body?.recipient?.id, message_id: `m_out_${outCounter}` });

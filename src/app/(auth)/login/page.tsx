@@ -17,6 +17,11 @@ export default async function LoginPage() {
       <div className="mt-4">
         <LoginForm />
       </div>
+      <p className="mt-4 text-center text-sm">
+        <Link href="/glemt-adgangskode" className="text-brand-700 underline">
+          Glemt adgangskode?
+        </Link>
+      </p>
       {canRegister && (
         <p className="mt-4 text-center text-sm text-slate-500">
           Ingen konto?{" "}

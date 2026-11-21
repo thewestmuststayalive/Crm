@@ -43,6 +43,13 @@
       "when": 1795275882201,
       "tag": "0005_login_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795277945465,
+      "tag": "0006_auth_tokens",
+      "breakpoints": true
     }
   ]
 }

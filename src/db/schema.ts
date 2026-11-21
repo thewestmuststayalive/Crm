@@ -417,3 +417,21 @@ export const loginAttempts = pgTable(
   },
   (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt), index("login_attempts_ip_idx").on(t.ipHash, t.createdAt)],
 );
+
+export const authTokenPurposeEnum = pgEnum("auth_token_purpose", ["RESET", "INVITE"]);
+
+/** Engangslinks til nulstilling af adgangskode og invitationer. Kun en SHA-256-hash gemmes. */
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: authTokenPurposeEnum("purpose").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_tokens_user_idx").on(t.userId, t.createdAt)],
+);

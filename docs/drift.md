@@ -53,6 +53,7 @@ Disse trin kan vente, til du har brug for dem.
 | `ENCRYPTION_KEY` | Før Facebook kobles på | 32 tilfældige bytes i base64, fx fra `openssl rand -base64 32`. **Gem den sikkert – mister du den, skal Facebook forbindes igen.** |
 | `CRON_SECRET` | Før Facebook kobles på | En lang tilfældig tekst |
 | `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` | Før Facebook kobles på | Se [meta-opsaetning.md](./meta-opsaetning.md) |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Når I vil have invitationer og "glemt adgangskode" på e-mail | Opret en gratis konto på [resend.com](https://resend.com), bekræft jeres domæne, og lav en API-nøgle. `EMAIL_FROM` fx `Kundespor <noreply@ditfirma.dk>` |
 
 Efter ændringer i miljøvariabler skal der altid deployes igen (Deployments → Redeploy).
 

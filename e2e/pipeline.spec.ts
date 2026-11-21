@@ -33,6 +33,7 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
   await page.goto("/pipeline");
   const card = page.locator("li", { hasText: dealTitle });
   await expect(page.locator('section[data-stage="NEW"]')).toContainText(dealTitle);
+  await expect(page.locator("[data-kanban]")).toHaveAttribute("data-ready", "true");
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await card.dispatchEvent("dragstart", { dataTransfer });
   await page.locator('section[data-stage="WON"]').dispatchEvent("drop", { dataTransfer });
@@ -48,6 +49,7 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
 
   // Skift fase via dropdown på dealsiden
   await page.goto(dealUrl);
+  await page.waitForLoadState("networkidle"); // vent til dropdown'en er interaktiv
   await page.selectOption("#stage-select", "LOST");
   await expect(page.locator("header")).toContainText("Tabt");
 });

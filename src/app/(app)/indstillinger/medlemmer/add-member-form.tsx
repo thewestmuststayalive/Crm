@@ -4,7 +4,13 @@ import { useActionState } from "react";
 import { addMember } from "@/app/actions/members";
 import { Field, FormMessage, Input, Select, SubmitButton } from "@/components/ui";
 
-export function AddMemberForm({ roles }: { roles: { value: string; label: string }[] }) {
+export function AddMemberForm({
+  roles,
+  emailEnabled,
+}: {
+  roles: { value: string; label: string }[];
+  emailEnabled: boolean;
+}) {
   const [state, action] = useActionState(addMember, {});
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-2">
@@ -14,9 +20,11 @@ export function AddMemberForm({ roles }: { roles: { value: string; label: string
       <Field label="E-mail" htmlFor="m-email">
         <Input id="m-email" name="email" type="email" defaultValue={state.values?.email} required />
       </Field>
-      <Field label="Midlertidig adgangskode" htmlFor="m-password">
-        <Input id="m-password" name="password" type="text" minLength={8} autoComplete="off" required />
-      </Field>
+      {!emailEnabled && (
+        <Field label="Midlertidig adgangskode" htmlFor="m-password">
+          <Input id="m-password" name="password" type="text" minLength={8} autoComplete="off" required />
+        </Field>
+      )}
       <Field label="Rolle" htmlFor="m-role">
         <Select id="m-role" name="role" defaultValue={state.values?.role ?? "MEMBER"} key={state.values?.role} className="w-full">
           {roles.map((r) => (
@@ -28,7 +36,9 @@ export function AddMemberForm({ roles }: { roles: { value: string; label: string
       </Field>
       <div className="space-y-3 sm:col-span-2">
         <FormMessage state={state} />
-        <SubmitButton pendingText="Tilføjer…">Tilføj medlem</SubmitButton>
+        <SubmitButton pendingText={emailEnabled ? "Sender…" : "Tilføjer…"}>
+          {emailEnabled ? "Send invitation" : "Tilføj medlem"}
+        </SubmitButton>
       </div>
     </form>
   );
