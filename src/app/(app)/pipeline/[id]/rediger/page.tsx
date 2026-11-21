@@ -4,6 +4,7 @@ import { updateDeal } from "@/app/actions/deals";
 import { PageHeader } from "@/components/display";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { getCustomFields } from "@/lib/custom-fields";
 import { getCompanyOptions, getContactOptions, getDeal, getMemberOptions } from "@/lib/crm";
 import { getPipelines } from "@/lib/pipelines";
 import { DealForm } from "../../deal-form";
@@ -13,6 +14,7 @@ export const metadata: Metadata = { title: "Redigér deal" };
 export default async function EditDealPage({ params }: PageProps<"/pipeline/[id]/rediger">) {
   const { id } = await params;
   const { workspace } = await requireWorkspace();
+  const customFields = await getCustomFields(workspace.id, "DEAL");
   const deal = await getDeal(workspace.id, id);
   if (!deal) notFound();
   const [contacts, companies, members, pipelines] = await Promise.all([
@@ -27,6 +29,7 @@ export default async function EditDealPage({ params }: PageProps<"/pipeline/[id]
       <PageHeader title={`Redigér ${deal.title}`} back={{ href: `/pipeline/${id}`, label: deal.title }} />
       <Card>
         <DealForm
+          customFields={customFields}
           action={updateDeal.bind(null, id)}
           initial={deal}
           contacts={contacts}

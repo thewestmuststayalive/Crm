@@ -8,6 +8,8 @@ import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { getCustomFields } from "@/lib/custom-fields";
+import { CustomFieldRows } from "@/components/custom-field-rows";
 import { DealsCard } from "@/components/deals-card";
 import { TaskForm } from "@/components/task-form";
 import { TaskList } from "@/components/task-list";
@@ -22,6 +24,7 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
   const { user, workspace } = await requireWorkspace();
   const contact = await getContact(workspace.id, id);
   if (!contact) notFound();
+  const customFields = await getCustomFields(workspace.id, "CONTACT");
 
   const [company, ownerName, timeline, deals, tasks, members] = await Promise.all([
     contact.companyId ? getCompany(workspace.id, contact.companyId) : null,
@@ -85,6 +88,7 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
                 <SourceBadge source={contact.source} />
               </DetailRow>
               <DetailRow label="Ansvarlig">{ownerName}</DetailRow>
+              <CustomFieldRows fields={customFields} values={contact.custom} />
               <DetailRow label="Oprettet">{formatDateTime(contact.createdAt)}</DetailRow>
               <DetailRow label="Opdateret">{formatDateTime(contact.updatedAt)}</DetailRow>
             </dl>

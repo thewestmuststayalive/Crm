@@ -112,6 +112,8 @@ export const companies = pgTable(
     website: text("website"),
     address: text("address"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /** Værdier for firmaets egne felter, nøglet på felt-id. */
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [index("companies_workspace_name_idx").on(t.workspaceId, t.name)],
@@ -135,6 +137,7 @@ export const contacts = pgTable(
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     /** Sat når kontakten har henvendt sig og venter på at blive kontaktet; nulstilles når nogen svarer. */
     awaitingSince: timestamp("awaiting_since", { withTimezone: true }),
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
@@ -205,6 +208,7 @@ export const deals = pgTable(
     expectedCloseDate: date("expected_close_date"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     lostReason: text("lost_reason"),
+    custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
@@ -550,4 +554,28 @@ export const automationRules = pgTable(
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.type] })],
+);
+
+export const customFieldEntityEnum = pgEnum("custom_field_entity", ["CONTACT", "COMPANY", "DEAL"]);
+export type CustomFieldEntity = (typeof customFieldEntityEnum.enumValues)[number];
+export const customFieldTypeEnum = pgEnum("custom_field_type", ["TEXT", "NUMBER", "DATE", "SELECT", "CHECKBOX"]);
+export type CustomFieldType = (typeof customFieldTypeEnum.enumValues)[number];
+
+/** Firmaets egne felter. Værdierne ligger i kolonnen `custom` på kontakter, virksomheder og deals. */
+export const customFields = pgTable(
+  "custom_fields",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    entity: customFieldEntityEnum("entity").notNull(),
+    label: text("label").notNull(),
+    type: customFieldTypeEnum("type").notNull().default("TEXT"),
+    /** Valgmuligheder for typen SELECT. */
+    options: jsonb("options").$type<string[]>().notNull().default([]),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("custom_fields_workspace_idx").on(t.workspaceId, t.entity, t.position)],
 );

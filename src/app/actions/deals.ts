@@ -9,6 +9,7 @@ import { leadSourceEnum } from "@/db/schema";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, getDeal, isMemberOf, logEvent } from "@/lib/crm";
 import { onStageChange, parseKroner } from "@/lib/deals";
+import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
 import { getEntryStage, getStage } from "@/lib/pipelines";
 import { isUuid, optionalId, optionalText } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
@@ -55,9 +56,11 @@ async function parseDeal(workspaceId: string, formData: FormData) {
   // Fasen bestemmer også pipelinen. Uden valg bruges første åbne fase i firmaets første pipeline.
   const stage = data.stageId ? await getStage(workspaceId, data.stageId) : await getEntryStage(workspaceId);
   if (!stage) return { error: "Den valgte fase findes ikke" } as const;
+  const custom = parseCustomValues(await getCustomFields(workspaceId, "DEAL"), formData);
+  if ("error" in custom) return { error: custom.error } as const;
   const { stageId: _ignored, ...rest } = data;
   void _ignored;
-  return { values: { ...rest, companyId, value }, stage } as const;
+  return { values: { ...rest, companyId, value, custom: custom.values }, stage } as const;
 }
 
 export async function createDeal(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, isMemberOf } from "@/lib/crm";
+import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
 import { isUuid, optionalEmail, optionalId, optionalText } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
 
@@ -28,7 +29,9 @@ async function parseCompany(workspaceId: string, formData: FormData) {
   if (parsed.data.ownerId && !(await isMemberOf(workspaceId, parsed.data.ownerId))) {
     return { error: "Den valgte ansvarlige er ikke medlem af firmaet" } as const;
   }
-  return { values: parsed.data } as const;
+  const custom = parseCustomValues(await getCustomFields(workspaceId, "COMPANY"), formData);
+  if ("error" in custom) return { error: custom.error } as const;
+  return { values: { ...parsed.data, custom: custom.values } } as const;
 }
 
 export async function createCompany(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -7,6 +7,7 @@ const tabs = [
   { href: "/indstillinger", label: "Firma" },
   { href: "/indstillinger/medlemmer", label: "Medlemmer" },
   { href: "/indstillinger/salgsfaser", label: "Salgsfaser" },
+  { href: "/indstillinger/felter", label: "Egne felter" },
   { href: "/indstillinger/automatik", label: "Automatik" },
   { href: "/indstillinger/kontaktformular", label: "Kontaktformular" },
   { href: "/indstillinger/meta", label: "Facebook & Instagram" },

@@ -3,6 +3,7 @@ import { createDeal } from "@/app/actions/deals";
 import { PageHeader } from "@/components/display";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { getCustomFields } from "@/lib/custom-fields";
 import { getCompanyOptions, getContactOptions, getMemberOptions } from "@/lib/crm";
 import { getPipelines } from "@/lib/pipelines";
 import { isUuid } from "@/lib/validation";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Ny deal" };
 
 export default async function NewDealPage({ searchParams }: PageProps<"/pipeline/ny">) {
   const { user, workspace } = await requireWorkspace();
+  const customFields = await getCustomFields(workspace.id, "DEAL");
   const { kontakt, virksomhed, pipeline } = await searchParams;
   const [contacts, companies, members, pipelines] = await Promise.all([
     getContactOptions(workspace.id),
@@ -30,6 +32,7 @@ export default async function NewDealPage({ searchParams }: PageProps<"/pipeline
       <PageHeader title="Ny deal" back={{ href: back, label: "Tilbage" }} />
       <Card>
         <DealForm
+          customFields={customFields}
           action={createDeal}
           initial={{ ownerId: user.id, contactId, companyId, stageId: entryStageId }}
           pipelines={pipelines}

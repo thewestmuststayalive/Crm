@@ -10,6 +10,8 @@ import { TaskList } from "@/components/task-list";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { getCustomFields } from "@/lib/custom-fields";
+import { CustomFieldRows } from "@/components/custom-field-rows";
 import { getCompany, getContact, getDeal, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
 import { DEAL_STATUS_STYLES, formatDateTime, formatIsoDate, formatKr } from "@/lib/labels";
 import { getPipelines } from "@/lib/pipelines";
@@ -23,6 +25,7 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
   const { user, workspace } = await requireWorkspace();
   const deal = await getDeal(workspace.id, id);
   if (!deal) notFound();
+  const customFields = await getCustomFields(workspace.id, "DEAL");
 
   const [contact, company, ownerName, timeline, tasks, members, pipelines] = await Promise.all([
     deal.contactId ? getContact(workspace.id, deal.contactId) : null,
@@ -91,6 +94,7 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
               {deal.closedAt && <DetailRow label="Lukket">{formatDateTime(deal.closedAt)}</DetailRow>}
               {pipelines.length > 1 && <DetailRow label="Pipeline">{pipeline?.name}</DetailRow>}
               {deal.status === "LOST" && <DetailRow label="Årsag">{deal.lostReason}</DetailRow>}
+              <CustomFieldRows fields={customFields} values={deal.custom} />
               <DetailRow label="Oprettet">{formatDateTime(deal.createdAt)}</DetailRow>
             </dl>
           </Card>

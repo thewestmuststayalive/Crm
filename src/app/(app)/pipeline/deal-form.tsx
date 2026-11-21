@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import type { ActionState } from "@/app/actions/types";
+import { CustomFieldInputs } from "@/components/custom-field-inputs";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 import { buttonClass } from "@/components/styles";
 import { Field, FormMessage, Input, Select, SubmitButton } from "@/components/ui";
 import { SOURCE_LABELS } from "@/lib/labels";
 
 type Option = { id: string; name: string };
 export type DealFormValues = {
+  custom?: Record<string, unknown> | null;
   title?: string;
   value?: number | string;
   stageId?: string | null;
@@ -22,6 +25,7 @@ export type DealFormValues = {
 
 export function DealForm({
   action,
+  customFields = [],
   initial,
   contacts,
   companies,
@@ -31,6 +35,7 @@ export function DealForm({
   cancelHref,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  customFields?: CustomFieldDef[];
   initial: DealFormValues;
   contacts: Option[];
   companies: Option[];
@@ -117,6 +122,7 @@ export function DealForm({
       <Field label="Årsag hvis tabt" htmlFor="d-lost">
         <Input id="d-lost" name="lostReason" defaultValue={v.lostReason ?? ""} maxLength={500} />
       </Field>
+      <CustomFieldInputs fields={customFields} values={initial.custom} submitted={state.values} />
       <div className="space-y-3 sm:col-span-2">
         <FormMessage state={state} />
         <div className="flex gap-2">

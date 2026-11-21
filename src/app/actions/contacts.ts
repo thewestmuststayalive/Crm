@@ -9,6 +9,7 @@ import { contactStatusEnum, leadSourceEnum } from "@/db/schema";
 import { respondToContact } from "@/lib/awaiting";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, isMemberOf } from "@/lib/crm";
+import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
 import { isUuid, optionalEmail, optionalId, optionalText } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
 
@@ -31,6 +32,8 @@ async function parseContact(workspaceId: string, formData: FormData) {
   const parsed = contactSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
   const data = parsed.data;
+  const custom = parseCustomValues(await getCustomFields(workspaceId, "CONTACT"), formData);
+  if ("error" in custom) return { error: custom.error } as const;
 
   if (data.companyId && !(await getCompany(workspaceId, data.companyId))) {
     return { error: "Den valgte virksomhed findes ikke" } as const;
@@ -58,6 +61,7 @@ async function parseContact(workspaceId: string, formData: FormData) {
       source: data.source,
       companyId,
       ownerId: data.ownerId,
+      custom: custom.values,
     },
   } as const;
 }
