@@ -22,6 +22,7 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
   REFERRAL: "Anbefaling",
   OTHER: "Andet",
   IMPORT: "Import",
+  BOOKING: "Onlinebooking",
 };
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {

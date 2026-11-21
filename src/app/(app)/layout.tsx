@@ -6,13 +6,16 @@ import { NotificationPoller } from "@/components/notification-poller";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
+import { countBookingsToday } from "@/lib/booking";
+import { getModules } from "@/lib/modules";
 import { countWaiting } from "@/lib/waiting";
 import { Nav } from "./nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, workspace, memberships } = await requireWorkspace();
-  const [[{ unread }], [{ notes }], waiting] = await Promise.all([
+  const modules = await getModules(workspace.id);
+  const [[{ unread }], [{ notes }], waiting, bookingsToday] = await Promise.all([
     db
       .select({ unread: sql<number>`coalesce(sum(${schema.conversations.unreadCount}), 0)::int` })
       .from(schema.conversations)
@@ -22,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from(schema.notifications)
       .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt))),
     countWaiting(workspace.id),
+    modules.booking ? countBookingsToday(workspace.id) : 0,
   ]);
 
   return (
@@ -37,7 +41,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               className="relative rounded-md p-1.5 text-brand-100 hover:bg-white/10 hover:text-white"
               aria-label={notes > 0 ? `Notifikationer, ${notes} ulæste` : "Notifikationer"}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                 <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
               </svg>
@@ -48,12 +62,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               )}
             </Link>
           </div>
-          <WorkspaceSwitcher
-            current={workspace.id}
-            workspaces={memberships.map((m) => ({ id: m.id, name: m.name }))}
-          />
+          <WorkspaceSwitcher current={workspace.id} workspaces={memberships.map((m) => ({ id: m.id, name: m.name }))} />
         </div>
-        <Nav badges={{ "/indbakke": unread, "/venter": waiting }} />
+        <Nav
+          badges={{ "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday }}
+          booking={modules.booking}
+        />
         <NotificationPoller initialUnread={notes} />
         <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
           <div className="min-w-0">

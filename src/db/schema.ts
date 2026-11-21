@@ -61,6 +61,11 @@ export const workspaces = pgTable("workspaces", {
   reviewMessage: text("review_message"),
   /** Slet leads uden aktivitet efter så mange måneder (GDPR-dataminimering). Null = slået fra. */
   leadRetentionMonths: integer("lead_retention_months"),
+  // Moduler, der kan slås til pr. firma.
+  /** Booking, kalender og biler (fx bilpleje). */
+  bookingEnabled: boolean("booking_enabled").notNull().default(false),
+  /** Tidsregistrering, retainers og projekter (fx bureau). */
+  agencyEnabled: boolean("agency_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -99,6 +104,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "REFERRAL",
   "OTHER",
   "IMPORT",
+  "BOOKING",
 ]);
 export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
 
@@ -534,6 +540,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "QUOTE_VIEWED",
   "QUOTE_ACCEPTED",
   "QUOTE_DECLINED",
+  "NEW_BOOKING",
+  "BOOKING_CANCELLED",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -692,5 +700,120 @@ export const reviewRequests = pgTable(
     index("review_requests_due_idx").on(t.status, t.sendAt),
     index("review_requests_workspace_idx").on(t.workspaceId, t.createdAt),
     index("review_requests_contact_idx").on(t.contactId),
+  ],
+);
+
+/** Åbningstid for én ugedag (mandag = indeks 0). Tider som "08:00". */
+export type OpeningDay = { open: boolean; from: string; to: string };
+
+/** Regler for onlinebooking pr. firma. */
+export const bookingSettings = pgTable("booking_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Den offentlige del af bookinglinket (/book/<key>). */
+  key: text("key").notNull().unique(),
+  openingHours: jsonb("opening_hours").$type<OpeningDay[]>().notNull(),
+  /** Hvor tæt de ledige tider ligger, i minutter. */
+  slotMinutes: integer("slot_minutes").notNull().default(30),
+  /** Antal bookinger der kan foregå samtidig (fx antal pladser i hallen). */
+  capacity: integer("capacity").notNull().default(1),
+  /** Hvor mange timer i forvejen kunden senest kan booke. */
+  minNoticeHours: integer("min_notice_hours").notNull().default(12),
+  /** Hvor mange dage frem kunden kan booke. */
+  maxDaysAhead: integer("max_days_ahead").notNull().default(30),
+  /** Hvor mange timer før kunden selv kan aflyse via linket. */
+  cancelHours: integer("cancel_hours").notNull().default(24),
+  /** Tekst øverst på bookingsiden. */
+  intro: text("intro"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** En ydelse, der kan bookes (fx "Indvendig rens"). Pris i øre inkl. moms. */
+export const services = pgTable(
+  "services",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    durationMinutes: integer("duration_minutes").notNull(),
+    priceOre: integer("price_ore").notNull().default(0),
+    /** Påmind kunden om en ny behandling efter så mange måneder. Null = ingen påmindelse. */
+    reminderMonths: integer("reminder_months"),
+    bookableOnline: boolean("bookable_online").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("services_workspace_idx").on(t.workspaceId, t.position)],
+);
+
+/** En bil, der tilhører en kontakt. Nummerpladen gemmes uden mellemrum med store bogstaver. */
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    plate: text("plate"),
+    make: text("make"),
+    model: text("model"),
+    year: integer("year"),
+    color: text("color"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("vehicles_workspace_plate_idx").on(t.workspaceId, t.plate),
+    index("vehicles_contact_idx").on(t.contactId),
+  ],
+);
+
+export const bookingStatusEnum = pgEnum("booking_status", ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"]);
+export type BookingStatus = (typeof bookingStatusEnum.enumValues)[number];
+export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
+
+/** En booket tid. Ydelsens navn og pris kopieres, så ændringer i prislisten ikke ændrer historikken. */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    vehicleId: uuid("vehicle_id").references(() => vehicles.id, { onDelete: "set null" }),
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    serviceName: text("service_name").notNull(),
+    priceOre: integer("price_ore").notNull().default(0),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: bookingStatusEnum("status").notNull().default("CONFIRMED"),
+    source: bookingSourceEnum("source").notNull().default("MANUAL"),
+    /** Kundens besked ved onlinebooking. */
+    customerNote: text("customer_note"),
+    internalNote: text("internal_note"),
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    /** Hemmeligt id i kundens aflysningslink. */
+    token: text("token").notNull().unique(),
+    ipHash: text("ip_hash"),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("bookings_workspace_start_idx").on(t.workspaceId, t.startsAt),
+    index("bookings_contact_idx").on(t.contactId),
+    index("bookings_status_start_idx").on(t.status, t.startsAt),
   ],
 );

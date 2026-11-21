@@ -50,7 +50,7 @@ export function brandedEmail(opts: {
   unsubscribeUrl?: string;
 }) {
   const p = opts.paragraphs
-    .map((t) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#1f2937">${escapeHtml(t)}</p>`)
+    .map((t) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#1f2937;white-space:pre-line">${escapeHtml(t)}</p>`)
     .join("");
   const button = opts.button
     ? `<p style="margin:24px 0"><a href="${escapeHtml(opts.button.url)}" style="display:inline-block;background:#1b6257;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:8px">${escapeHtml(opts.button.label)}</a></p>

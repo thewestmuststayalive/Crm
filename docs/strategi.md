@@ -131,6 +131,18 @@ Domæner er tjekket via DNS/RDAP (nov. 2026). ".dk ledig" skal bekræftes hos Pu
 
 **Forslag til næste pakke:** 7 (mobil-app med push), 3 (e-mail på kundekortet) og 6 (AI-assistent).
 
+## 7. Fase C – bilpleje og bureau (nov. 2026)
+
+Research af bilplejesystemer (Anolla, Urable, Jobber, Mobile Tech RX) og bureausystemer (Productive, Teamwork, Accelo, AgencyAnalytics, SuiteDash). Hvert firma slår modulerne til under Indstillinger → Firma.
+
+| Trin | Indhold | Status |
+| ---- | ------- | ------ |
+| 1 | Ydelser og prisliste, åbningstider, kalender, onlinebooking med link og QR-kode, bekræftelse/aflysning/påmindelse på e-mail, biler på kundekortet, søgning på nummerplade | ✔ |
+| 2 | Tidsregistrering og retainers (månedligt budget med advarsel ved 80/100 %) | |
+| 3 | Før/efter-billeder, påmindelse om ny behandling, projekter med skabeloner, månedlig kunderapport | |
+
+**Udskudt:** betaling/depositum (Stripe/MobilePay), automatisk nummerpladeopslag (kræver aftale med en DMR-dataudbyder), klippekort/abonnementer, kundeportal, fakturering (e-conomic), SMS.
+
 ---
 
 ### Kilder

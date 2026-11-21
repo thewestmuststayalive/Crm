@@ -6,11 +6,13 @@ import { sendDailyDigests } from "@/lib/digest";
 import { cleanupStaleLeads } from "@/lib/gdpr";
 import { getMetaConfig } from "@/lib/meta/graph";
 import { syncInsights } from "@/lib/meta/insights";
+import { sendBookingReminders } from "@/lib/booking-flow";
 import { sendDueReviewRequests } from "@/lib/reviews";
 
 // Daglig kørsel (Vercel Cron, se vercel.json) med "Authorization: Bearer <CRON_SECRET>":
 // 1) automatiske opfølgningsregler, 2) annoncedata fra Meta, 3) anmodninger om anmeldelse,
-// 4) sletning af gamle leads (hvor det er slået til), 5) daglig e-mail-oversigt.
+// 4) påmindelse om bookinger i morgen, 5) sletning af gamle leads (hvor det er slået til),
+// 6) daglig e-mail-oversigt.
 
 export const maxDuration = 60;
 
@@ -55,6 +57,12 @@ export async function GET(request: NextRequest) {
     report.reviewRequests = await sendDueReviewRequests();
   } catch (error) {
     console.error("Anmodninger om anmeldelse fejlede", error);
+  }
+
+  try {
+    report.bookingReminders = await sendBookingReminders();
+  } catch (error) {
+    console.error("Påmindelser om bookinger fejlede", error);
   }
 
   try {

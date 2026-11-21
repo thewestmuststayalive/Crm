@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CustomerTabs } from "@/components/customer-tabs";
@@ -33,6 +33,8 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kunder"
         ilike(schema.contacts.email, p),
         ilike(schema.contacts.phone, p),
         ilike(schema.companies.name, p),
+        // Nummerplade (gemt uden mellemrum), så "ab 12 345" finder bilens ejer.
+        sql`exists (select 1 from ${schema.vehicles} v where v.contact_id = ${schema.contacts.id} and v.plate ilike ${likePattern(q.toUpperCase().replace(/[^A-Z0-9ÆØÅ]/g, "") || q)})`,
       ),
     );
   }
@@ -102,7 +104,7 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kunder"
           id="q"
           name="q"
           defaultValue={q}
-          placeholder="Søg på navn, e-mail, telefon eller virksomhed"
+          placeholder="Søg på navn, e-mail, telefon, virksomhed eller nummerplade"
           className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
         />
         <label htmlFor="status" className="sr-only">
@@ -126,7 +128,9 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kunder"
 
       {contacts.length === 0 ? (
         <EmptyState>
-          {q || status ? "Ingen kontakter matcher din søgning." : "Ingen kontakter endnu. Opret den første med “Ny kontakt”."}
+          {q || status
+            ? "Ingen kontakter matcher din søgning."
+            : "Ingen kontakter endnu. Opret den første med “Ny kontakt”."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

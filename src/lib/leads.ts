@@ -30,7 +30,7 @@ function digits(phone: string) {
 }
 
 /** Finder en eksisterende kontakt på e-mail eller telefonnummer, så vi undgår dubletter. */
-async function findExistingContact(workspaceId: string, email?: string | null, phone?: string | null) {
+export async function findExistingContact(workspaceId: string, email?: string | null, phone?: string | null) {
   if (email) {
     const [row] = await db
       .select({ id: schema.contacts.id, companyId: schema.contacts.companyId })

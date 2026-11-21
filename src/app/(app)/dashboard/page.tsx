@@ -5,7 +5,10 @@ import { Stat } from "@/components/stat";
 import { buttonClass, cx } from "@/components/styles";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { BOOKING_STATUS_LABELS, formatPlate, getTodaysBookings } from "@/lib/booking";
 import { getDashboard } from "@/lib/dashboard";
+import { getModules } from "@/lib/modules";
+import { localTime } from "@/lib/time";
 import { formatDuration } from "@/lib/waiting";
 import { formatDate, formatIsoDate, formatKr, SOURCE_LABELS, todayIso } from "@/lib/labels";
 
@@ -48,6 +51,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const all = visning === "alle" && memberships.length > 1;
   const workspaceIds = all ? memberships.map((m) => m.id) : [workspace.id];
   const d = await getDashboard(workspaceIds, user.id);
+  const showBookings = !all && (await getModules(workspace.id)).booking;
+  const bookingsToday = showBookings ? await getTodaysBookings(workspace.id) : [];
   const today = todayIso();
 
   const totalSources = d.sources.reduce((s, r) => s + r.n, 0);
@@ -95,9 +100,40 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               {d.waiting}
             </Link>
           }
-          hint={d.response.messages !== null ? `Median svartid ${formatDuration(d.response.messages)}` : "Beskeder og nye leads"}
+          hint={
+            d.response.messages !== null
+              ? `Median svartid ${formatDuration(d.response.messages)}`
+              : "Beskeder og nye leads"
+          }
         />
       </div>
+
+      {showBookings && (
+        <Card title={`Dagens bookinger (${bookingsToday.length})`}>
+          {bookingsToday.length === 0 ? (
+            <p className="text-sm text-slate-500">Ingen bookinger i dag.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100" aria-label="Dagens bookinger">
+              {bookingsToday.map((b) => (
+                <li key={b.id}>
+                  <Link
+                    href={`/kalender/${b.id}`}
+                    className="flex flex-wrap items-center gap-x-3 py-2 text-sm hover:bg-slate-50"
+                  >
+                    <span className="w-12 font-semibold text-slate-900">{localTime(b.startsAt)}</span>
+                    <span className="text-slate-900">{b.serviceName}</span>
+                    <span className="text-slate-600">{b.contactName}</span>
+                    {b.plate && <span className="font-mono text-xs text-slate-500">{formatPlate(b.plate)}</span>}
+                    {b.status !== "CONFIRMED" && (
+                      <span className="text-xs text-slate-500">({BOOKING_STATUS_LABELS[b.status]})</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Dine opgaver i dag">
@@ -109,7 +145,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 const path = t.dealId ? `/pipeline/${t.dealId}` : t.contactId ? `/kunder/${t.contactId}` : "/opgaver";
                 return (
                   <li key={t.id} className="py-2 text-sm">
-                    <WsLink current={workspace.id} workspaceId={t.workspaceId} path={path} className="text-slate-900 hover:underline">
+                    <WsLink
+                      current={workspace.id}
+                      workspaceId={t.workspaceId}
+                      path={path}
+                      className="text-slate-900 hover:underline"
+                    >
                       {t.title}
                     </WsLink>
                     <p className={cx("text-xs", t.dueDate && t.dueDate < today ? "text-red-700" : "text-amber-700")}>
@@ -134,7 +175,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               {d.recentLeads.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                   <div className="min-w-0">
-                    <WsLink current={workspace.id} workspaceId={c.workspaceId} path={`/kunder/${c.id}`} className="block truncate text-slate-900 hover:underline">
+                    <WsLink
+                      current={workspace.id}
+                      workspaceId={c.workspaceId}
+                      path={`/kunder/${c.id}`}
+                      className="block truncate text-slate-900 hover:underline"
+                    >
                       {c.name}
                     </WsLink>
                     <p className="text-xs text-slate-500">
