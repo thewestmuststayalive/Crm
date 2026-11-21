@@ -28,13 +28,13 @@ export function Nav({ badges = {} }: { badges?: Record<string, number> }) {
             key={item.href}
             href={item.href}
             className={`flex shrink-0 items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium ${
-              active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
+              active ? "bg-white/12 text-white" : "text-brand-100/80 hover:bg-white/6 hover:text-white"
             }`}
           >
             {item.label}
             {badge > 0 && (
               <span
-                className="rounded-full bg-sky-600 px-1.5 text-[10px] font-semibold text-white"
+                className="rounded-full bg-accent-400 px-1.5 text-[10px] font-semibold text-brand-950"
                 aria-label={`${badge} ulæste`}
               >
                 {badge}

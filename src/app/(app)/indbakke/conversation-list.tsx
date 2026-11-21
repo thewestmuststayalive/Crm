@@ -51,7 +51,7 @@ export function ConversationList({ conversations }: { conversations: Item[] }) {
                   <div className="mt-0.5 flex items-center justify-between gap-2">
                     <span className="truncate text-xs text-slate-500">{c.lastMessagePreview ?? ""}</span>
                     {c.unreadCount > 0 && (
-                      <span className="shrink-0 rounded-full bg-sky-600 px-1.5 text-[10px] font-semibold text-white">
+                      <span className="shrink-0 rounded-full bg-accent-400 px-1.5 text-[10px] font-semibold text-brand-950">
                         {c.unreadCount}
                       </span>
                     )}

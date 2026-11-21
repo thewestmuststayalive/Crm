@@ -159,7 +159,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                       </span>
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-slate-100" aria-hidden>
-                      <div className="h-1.5 rounded-full bg-slate-700" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
                     </div>
                   </li>
                 );

@@ -15,6 +15,8 @@
     "vercel-build": "if [ -n \"$DATABASE_URL\" ]; then drizzle-kit migrate; else echo \"DATABASE_URL mangler - kobl databasen på i Vercel og deploy igen\"; fi && next build"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.6",
     "pg": "^8.23.1",

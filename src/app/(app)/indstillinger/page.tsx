@@ -13,7 +13,7 @@ export default async function WorkspaceSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Card title="Firmaoplysninger" description="Navnet vises i firmavælgeren og på tværs af CRM'et.">
+      <Card title="Firmaoplysninger" description="Navnet vises i firmavælgeren og på tværs af Kundespor.">
         {canEdit ? (
           <RenameWorkspaceForm name={workspace.name} />
         ) : (
