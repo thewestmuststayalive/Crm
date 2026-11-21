@@ -2,19 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteDeal } from "@/app/actions/deals";
+import { createQuote } from "@/app/actions/quotes";
 import { ActivityForm } from "@/components/activity-form";
 import { Badge, DetailRow, PageHeader, SourceBadge } from "@/components/display";
 import { buttonClass } from "@/components/styles";
 import { TaskForm } from "@/components/task-form";
 import { TaskList } from "@/components/task-list";
 import { Timeline } from "@/components/timeline";
-import { Card, ConfirmButton } from "@/components/ui";
+import { Card, ConfirmButton, SubmitButton } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
 import { getCustomFields } from "@/lib/custom-fields";
 import { CustomFieldRows } from "@/components/custom-field-rows";
 import { getCompany, getContact, getDeal, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
 import { DEAL_STATUS_STYLES, formatDateTime, formatIsoDate, formatKr } from "@/lib/labels";
 import { getPipelines } from "@/lib/pipelines";
+import { formatOre } from "@/lib/quote-math";
+import { getDealQuotes, QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES } from "@/lib/quotes";
 import { hasRole } from "@/lib/roles";
 import { StageSelect } from "../stage-select";
 
@@ -27,7 +30,7 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
   if (!deal) notFound();
   const customFields = await getCustomFields(workspace.id, "DEAL");
 
-  const [contact, company, ownerName, timeline, tasks, members, pipelines] = await Promise.all([
+  const [contact, company, ownerName, timeline, tasks, members, pipelines, quotes] = await Promise.all([
     deal.contactId ? getContact(workspace.id, deal.contactId) : null,
     deal.companyId ? getCompany(workspace.id, deal.companyId) : null,
     getUserName(deal.ownerId),
@@ -35,6 +38,7 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
     getTasks(workspace.id, { dealId: deal.id }),
     getMemberOptions(workspace.id),
     getPipelines(workspace.id),
+    getDealQuotes(workspace.id, deal.id),
   ]);
   const pipeline = pipelines.find((p) => p.id === deal.pipelineId);
   const stage = pipeline?.stages.find((s) => s.id === deal.stageId);
@@ -97,6 +101,37 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
               <CustomFieldRows fields={customFields} values={deal.custom} />
               <DetailRow label="Oprettet">{formatDateTime(deal.createdAt)}</DetailRow>
             </dl>
+          </Card>
+          <Card title="Tilbud">
+            {quotes.length > 0 && (
+              <ul className="mb-3 divide-y divide-slate-100">
+                {quotes.map((q) => (
+                  <li key={q.id}>
+                    <Link
+                      href={`/pipeline/${deal.id}/tilbud/${q.id}`}
+                      className="flex items-center justify-between gap-3 py-2 text-sm hover:bg-slate-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-900">
+                          #{q.number} {q.title}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {formatOre(q.totals.total)}
+                          {q.viewedAt && q.status === "SENT" ? " · åbnet" : ""}
+                        </span>
+                      </span>
+                      <Badge className={QUOTE_STATUS_STYLES[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form action={createQuote}>
+              <input type="hidden" name="dealId" value={deal.id} />
+              <SubmitButton variant="secondary" pendingText="Opretter…">
+                Nyt tilbud
+              </SubmitButton>
+            </form>
           </Card>
           <Card title="Opgaver">
             <TaskForm members={members} defaultAssigneeId={user.id} dealId={deal.id} />

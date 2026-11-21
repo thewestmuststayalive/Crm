@@ -47,6 +47,13 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   /** Mål for svartid i minutter. Henvendelser der har ventet længere, fremhæves. */
   responseTargetMinutes: integer("response_target_minutes").notNull().default(120),
+  // Firmaoplysninger, der vises på tilbud og e-mails til kunder.
+  cvr: text("cvr"),
+  address: text("address"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  quoteTerms: text("quote_terms"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -515,6 +522,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "TASK_ASSIGNED",
   "DEAL_WON",
   "MEMBER_ADDED",
+  "QUOTE_VIEWED",
+  "QUOTE_ACCEPTED",
+  "QUOTE_DECLINED",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -578,4 +588,64 @@ export const customFields = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("custom_fields_workspace_idx").on(t.workspaceId, t.entity, t.position)],
+);
+
+export const quoteStatusEnum = pgEnum("quote_status", ["DRAFT", "SENT", "ACCEPTED", "DECLINED"]);
+export type QuoteStatus = (typeof quoteStatusEnum.enumValues)[number];
+
+/** Et tilbud på en deal. Kunden ser og accepterer det via et hemmeligt link (token). */
+export const quotes = pgTable(
+  "quotes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id")
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    intro: text("intro"),
+    terms: text("terms"),
+    status: quoteStatusEnum("status").notNull().default("DRAFT"),
+    validUntil: date("valid_until"),
+    /** Momssats i procent (25 eller 0). */
+    vatRate: integer("vat_rate").notNull().default(25),
+    token: text("token").notNull().unique(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedName: text("accepted_name"),
+    acceptedIpHash: text("accepted_ip_hash"),
+    declinedAt: timestamp("declined_at", { withTimezone: true }),
+    declineReason: text("decline_reason"),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("quotes_workspace_number_idx").on(t.workspaceId, t.number),
+    index("quotes_deal_idx").on(t.dealId),
+  ],
+);
+
+/** En linje på et tilbud. Priser i øre, ekskl. moms. */
+export const quoteLines = pgTable(
+  "quote_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    quoteId: uuid("quote_id")
+      .notNull()
+      .references(() => quotes.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    description: text("description").notNull(),
+    quantity: numeric("quantity", { precision: 12, scale: 2 }).notNull().default("1"),
+    unit: text("unit"),
+    unitPriceOre: integer("unit_price_ore").notNull().default(0),
+    discountPct: numeric("discount_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+  },
+  (t) => [index("quote_lines_quote_idx").on(t.quoteId, t.position)],
 );
