@@ -1,7 +1,7 @@
 // Fælles klasser, som både server- og klientkomponenter kan bruge (fx på <Link>).
 
 export const buttonVariants = {
-  primary: "bg-slate-900 text-white hover:bg-slate-700",
+  primary: "bg-brand-700 text-white shadow-sm hover:bg-brand-800",
   secondary: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
   danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
 };

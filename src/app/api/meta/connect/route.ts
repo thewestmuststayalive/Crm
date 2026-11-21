@@ -7,7 +7,7 @@ import { getMetaConfig } from "@/lib/meta/graph";
 import { OAUTH_STATE_COOKIE } from "@/lib/meta/oauth";
 import { getAppUrl } from "@/lib/url";
 
-// Tilladelser CRM'et beder om. Lead Ads, beskeder og annoncedata kræver Metas godkendelse (App Review).
+// Tilladelser Kundespor beder om. Lead Ads, beskeder og annoncedata kræver Metas godkendelse (App Review).
 const SCOPES = [
   "pages_show_list",
   "pages_manage_metadata",
@@ -20,7 +20,7 @@ const SCOPES = [
   "business_management",
 ];
 
-/** Sender en administrator videre til Facebook for at give CRM'et adgang. */
+/** Sender en administrator videre til Facebook for at give Kundespor adgang. */
 export async function GET() {
   const { workspace } = await requireRole("ADMIN");
   const config = getMetaConfig();

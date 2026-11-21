@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
+import { notify } from "@/lib/notify";
 import { getCompany, getContact, getDeal, isMemberOf } from "@/lib/crm";
 import { hasRole } from "@/lib/roles";
 import { isUuid, optionalId } from "@/lib/validation";
@@ -38,12 +39,24 @@ export async function createTask(_prev: ActionState, formData: FormData): Promis
   if (data.companyId && !(await getCompany(workspace.id, data.companyId))) return { error: "Virksomheden findes ikke" };
   if (data.dealId && !(await getDeal(workspace.id, data.dealId))) return { error: "Dealen findes ikke" };
 
+  const assigneeId = data.assigneeId ?? user.id;
   await db.insert(schema.tasks).values({
     ...data,
-    assigneeId: data.assigneeId ?? user.id,
+    assigneeId,
     workspaceId: workspace.id,
     createdById: user.id,
   });
+  if (assigneeId !== user.id) {
+    const href = data.dealId ? `/pipeline/${data.dealId}` : data.contactId ? `/kunder/${data.contactId}` : data.companyId ? `/virksomheder/${data.companyId}` : "/opgaver";
+    await notify({
+      workspaceId: workspace.id,
+      to: { userIds: [assigneeId] },
+      type: "TASK_ASSIGNED",
+      title: `${user.name} har givet dig en opgave`,
+      body: data.dueDate ? `${data.title} (frist ${data.dueDate.split("-").reverse().join("-")})` : data.title,
+      href,
+    });
+  }
   revalidatePath("/", "layout");
   return { success: "Opgaven er oprettet" };
 }

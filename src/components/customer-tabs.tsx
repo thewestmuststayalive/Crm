@@ -19,7 +19,7 @@ export function CustomerTabs() {
             key={tab.href}
             href={tab.href}
             className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium ${
-              active ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"
+              active ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             {tab.label}

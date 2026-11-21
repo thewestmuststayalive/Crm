@@ -2,6 +2,7 @@ import "server-only";
 import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { OPEN_STAGES, todayIso } from "./labels";
+import { getResponseStats } from "./waiting";
 
 // Nøgletal til dashboardet. Tager en liste af workspace-id'er, så det kan vise
 // ét firma eller alle brugerens firmaer samlet. Kald kun med id'er fra brugerens medlemskaber.
@@ -16,7 +17,7 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
     [openPipeline],
     [wonMonth],
     [overdue],
-    [unread],
+    [waiting],
     myTasks,
     recentLeads,
     sources,
@@ -44,10 +45,11 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
           lt(schema.tasks.dueDate, today),
         ),
       ),
-    db
-      .select({ value: sql<number>`coalesce(sum(${schema.conversations.unreadCount}), 0)::int` })
-      .from(schema.conversations)
-      .where(inArray(schema.conversations.workspaceId, workspaceIds)),
+    db.execute<{ value: number }>(sql`
+      select
+        (select count(*) from contacts where workspace_id in ${workspaceIds} and awaiting_since is not null) +
+        (select count(*) from conversations where workspace_id in ${workspaceIds} and awaiting_since is not null) as value
+    `).then((r) => [{ value: Number(r.rows[0]?.value ?? 0) }]),
     db
       .select({
         id: schema.tasks.id,
@@ -97,7 +99,8 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
     openPipeline: { value: Number(openPipeline.value), count: openPipeline.n },
     wonMonth: { value: Number(wonMonth.value), count: wonMonth.n },
     overdueTasks: overdue.value,
-    unread: unread.value,
+    waiting: waiting.value,
+    response: await getResponseStats(workspaceIds),
     myTasks,
     recentLeads,
     sources,

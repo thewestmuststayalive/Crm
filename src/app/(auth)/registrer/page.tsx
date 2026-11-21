@@ -27,7 +27,7 @@ export default async function RegisterPage() {
   return (
     <>
       <h1 className="text-lg font-semibold text-slate-900">Opret konto</h1>
-      <p className="mt-1 text-sm text-slate-500">Du bliver ejer af dit første firma i CRM&apos;et.</p>
+      <p className="mt-1 text-sm text-slate-500">Du bliver ejer af dit første firma i Kundespor.</p>
       <div className="mt-4">
         <RegisterForm />
       </div>

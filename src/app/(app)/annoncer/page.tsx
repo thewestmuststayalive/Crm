@@ -39,7 +39,7 @@ export default async function AdsPage({ searchParams }: PageProps<"/annoncer">) 
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Annoncer</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Meta-annoncer de seneste {days} dage: forbrug, leads og hvad de blev til i CRM&apos;et.
+            Meta-annoncer de seneste {days} dage: forbrug, leads og hvad de blev til i Kundespor.
           </p>
         </div>
         <div className="flex gap-2">
@@ -111,7 +111,7 @@ export default async function AdsPage({ searchParams }: PageProps<"/annoncer">) 
           )}
           <p className="text-xs text-slate-500">
             Forbrug hentes fra Meta én gang i døgnet (og når du trykker “Opdatér annoncedata nu” under Indstillinger).
-            Leads tælles, når de er importeret i CRM&apos;et via Lead Ads.
+            Leads tælles, når de er importeret i Kundespor via Lead Ads.
           </p>
         </>
       )}

@@ -4,6 +4,10 @@ import type { NextConfig } from "next";
 // dynamisk pr. bruger, så den klassiske dynamiske rendering er enklest.
 const nextConfig: NextConfig = {
   cacheComponents: false,
+  experimental: {
+    // Import af kundelister sendes som fil til en server action. Vercel tillader højst 4,5 MB pr. request.
+    serverActions: { bodySizeLimit: "4.4mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

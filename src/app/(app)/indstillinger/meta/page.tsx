@@ -186,7 +186,7 @@ export default async function MetaSettingsPage({ searchParams }: PageProps<"/ind
                     </form>
                     <form action={disconnectPage}>
                       <input type="hidden" name="id" value={p.id} />
-                      <ConfirmButton message={`Frakobl ${p.name}? Samtaler fra siden slettes fra CRM'et.`} className="px-2.5 py-1 text-xs">
+                      <ConfirmButton message={`Frakobl ${p.name}? Samtaler fra siden slettes fra Kundespor.`} className="px-2.5 py-1 text-xs">
                         Frakobl
                       </ConfirmButton>
                     </form>

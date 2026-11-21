@@ -103,7 +103,10 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   const user = await requireUser();
   const parsed = profileSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  await db.update(schema.users).set({ name: parsed.data.name }).where(eq(schema.users.id, user.id));
+  await db
+    .update(schema.users)
+    .set({ name: parsed.data.name, emailNotifications: formData.get("emailNotifications") === "on" })
+    .where(eq(schema.users.id, user.id));
   return { success: "Profilen er gemt" };
 }
 

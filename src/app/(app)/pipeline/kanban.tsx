@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { moveDeal } from "@/app/actions/deals";
 import type { DealStage } from "@/db/schema";
 import { formatIsoDate, formatKr, STAGE_LABELS } from "@/lib/labels";
@@ -33,6 +33,11 @@ export function Kanban({ deals, stages }: { deals: KanbanDeal[]; stages: DealSta
   );
   const [, startTransition] = useTransition();
   const [over, setOver] = useState<DealStage | null>(null);
+  // Markerer at tavlen er interaktiv (bruges af tests, så de ikke trækker kort før React er klar).
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (rootRef.current) rootRef.current.dataset.ready = "true";
+  }, []);
 
   function drop(stage: DealStage, id: string) {
     setOver(null);
@@ -45,7 +50,7 @@ export function Kanban({ deals, stages }: { deals: KanbanDeal[]; stages: DealSta
   }
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
+    <div ref={rootRef} data-kanban className="-mx-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
       <div className="grid min-w-[880px] grid-cols-5 gap-3">
         {stages.map((stage) => {
           const items = optimistic.filter((d) => d.stage === stage);

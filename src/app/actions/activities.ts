@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
+import { respondToContact } from "@/lib/awaiting";
 import { requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, getDeal } from "@/lib/crm";
 import { USER_ACTIVITY_TYPES } from "@/lib/labels";
@@ -51,6 +52,10 @@ export async function addActivity(_prev: ActionState, formData: FormData): Promi
     ...target,
     ...parsed.data,
   });
+  // Et opkald, en e-mail eller et møde betyder, at kunden er blevet kontaktet.
+  if (target.contactId && parsed.data.type !== "NOTE") {
+    await respondToContact(workspace.id, target.contactId, { log: true, userId: user.id });
+  }
   revalidatePath(path);
   return { success: "Gemt" };
 }

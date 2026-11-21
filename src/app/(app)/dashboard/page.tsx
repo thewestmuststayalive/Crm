@@ -6,6 +6,7 @@ import { buttonClass, cx } from "@/components/styles";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
 import { getDashboard } from "@/lib/dashboard";
+import { formatDuration } from "@/lib/waiting";
 import { formatDate, formatIsoDate, formatKr, SOURCE_LABELS, todayIso } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -87,7 +88,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           value={<span className={cx(d.overdueTasks > 0 && "text-red-700")}>{d.overdueTasks}</span>}
           hint="Tildelt dig"
         />
-        <Stat label="Ulæste beskeder" value={d.unread} hint="Messenger og Instagram" />
+        <Stat
+          label="Venter på svar"
+          value={
+            <Link href="/venter" className={cx("hover:underline", d.waiting > 0 && "text-accent-700")}>
+              {d.waiting}
+            </Link>
+          }
+          hint={d.response.messages !== null ? `Median svartid ${formatDuration(d.response.messages)}` : "Beskeder og nye leads"}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -159,7 +168,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                       </span>
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-slate-100" aria-hidden>
-                      <div className="h-1.5 rounded-full bg-slate-700" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
                     </div>
                   </li>
                 );

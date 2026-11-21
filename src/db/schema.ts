@@ -22,6 +22,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  /** Modtag e-mail ved nye leads tildelt brugeren. */
+  emailNotifications: boolean("email_notifications").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -43,6 +45,8 @@ export const sessions = pgTable(
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** Mål for svartid i minutter. Henvendelser der har ventet længere, fremhæves. */
+  responseTargetMinutes: integer("response_target_minutes").notNull().default(120),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -80,6 +84,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "PHONE",
   "REFERRAL",
   "OTHER",
+  "IMPORT",
 ]);
 export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
 
@@ -128,10 +133,13 @@ export const contacts = pgTable(
     status: contactStatusEnum("status").notNull().default("LEAD"),
     source: leadSourceEnum("source").notNull().default("MANUAL"),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    /** Sat når kontakten har henvendt sig og venter på at blive kontaktet; nulstilles når nogen svarer. */
+    awaitingSince: timestamp("awaiting_since", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
     index("contacts_workspace_created_idx").on(t.workspaceId, t.createdAt),
+    index("contacts_awaiting_idx").on(t.workspaceId, t.awaitingSince),
     index("contacts_company_idx").on(t.companyId),
   ],
 );
@@ -374,6 +382,8 @@ export const conversations = pgTable(
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     lastMessagePreview: text("last_message_preview"),
     lastInboundAt: timestamp("last_inbound_at", { withTimezone: true }),
+    /** Første ubesvarede besked fra kunden; nulstilles når der svares (også fra Meta Business Suite). */
+    awaitingSince: timestamp("awaiting_since", { withTimezone: true }),
     unreadCount: integer("unread_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -416,4 +426,87 @@ export const loginAttempts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt), index("login_attempts_ip_idx").on(t.ipHash, t.createdAt)],
+);
+
+export const authTokenPurposeEnum = pgEnum("auth_token_purpose", ["RESET", "INVITE"]);
+
+/** Engangslinks til nulstilling af adgangskode og invitationer. Kun en SHA-256-hash gemmes. */
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: authTokenPurposeEnum("purpose").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_tokens_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const responseChannelEnum = pgEnum("response_channel", ["LEAD", "MESSENGER", "INSTAGRAM"]);
+
+/** Én række pr. besvaret henvendelse – bruges til at måle svartid. */
+export const responseLog = pgTable(
+  "response_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    channel: responseChannelEnum("channel").notNull(),
+    seconds: integer("seconds").notNull(),
+    respondedById: uuid("responded_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("response_log_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "NEW_LEAD",
+  "NEW_CONVERSATION",
+  "TASK_ASSIGNED",
+  "DEAL_WON",
+  "MEMBER_ADDED",
+]);
+export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt, t.createdAt)],
+);
+
+export const automationTypeEnum = pgEnum("automation_type", ["STALE_LEAD", "PROPOSAL_FOLLOWUP", "CLOSE_DATE_PASSED"]);
+export type AutomationType = (typeof automationTypeEnum.enumValues)[number];
+
+/** Automatiske opfølgningsregler pr. firma. Mangler en række, gælder standardindstillingen. */
+export const automationRules = pgTable(
+  "automation_rules",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    type: automationTypeEnum("type").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    days: integer("days").notNull().default(3),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.type] })],
 );

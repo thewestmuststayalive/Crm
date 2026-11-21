@@ -2,6 +2,8 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Platform } from "@/db/schema";
+import { respondToContact, respondToConversation } from "@/lib/awaiting";
+import { notify } from "@/lib/notify";
 import { graph, GraphError } from "./graph";
 import { findPageByExternalId, pageToken, type MetaPage } from "./store";
 
@@ -51,7 +53,12 @@ async function fetchProfileName(page: MetaPage, platform: Platform, userId: stri
   }
 }
 
-async function upsertConversation(page: MetaPage, platform: Platform, externalUserId: string, name?: string | null) {
+async function upsertConversation(
+  page: MetaPage,
+  platform: Platform,
+  externalUserId: string,
+  name?: string | null,
+): Promise<{ conversation: typeof schema.conversations.$inferSelect; created: boolean }> {
   const [existing] = await db
     .select()
     .from(schema.conversations)
@@ -63,7 +70,7 @@ async function upsertConversation(page: MetaPage, platform: Platform, externalUs
       ),
     )
     .limit(1);
-  if (existing) return existing;
+  if (existing) return { conversation: existing, created: false };
 
   const resolvedName = name ?? (await fetchProfileName(page, platform, externalUserId));
   const [created] = await db
@@ -71,7 +78,7 @@ async function upsertConversation(page: MetaPage, platform: Platform, externalUs
     .values({ workspaceId: page.workspaceId, metaPageId: page.id, platform, externalUserId, name: resolvedName })
     .onConflictDoNothing()
     .returning();
-  if (created) return created;
+  if (created) return { conversation: created, created: true };
   // En samtidig webhook nåede at oprette den.
   const [row] = await db
     .select()
@@ -84,7 +91,7 @@ async function upsertConversation(page: MetaPage, platform: Platform, externalUs
       ),
     )
     .limit(1);
-  return row;
+  return { conversation: row, created: false };
 }
 
 /** Gemmer en besked (ind eller ud) og opdaterer samtalens oversigt. Dubletter ignoreres. */
@@ -101,7 +108,13 @@ export async function storeMessage(input: {
   sentById?: string | null;
   countAsUnread?: boolean;
 }) {
-  const conversation = await upsertConversation(input.page, input.platform, input.externalUserId, input.userName);
+  const { conversation, created } = await upsertConversation(
+    input.page,
+    input.platform,
+    input.externalUserId,
+    input.userName,
+  );
+  const live = input.countAsUnread !== false; // false ved import af gamle samtaler
   const [inserted] = await db
     .insert(schema.messages)
     .values({
@@ -127,11 +140,39 @@ export async function storeMessage(input: {
       ...(isIn
         ? {
             lastInboundAt: sql`greatest(${schema.conversations.lastInboundAt}, ${input.sentAt})`,
-            ...(input.countAsUnread !== false ? { unreadCount: sql`${schema.conversations.unreadCount} + 1` } : {}),
+            ...(live
+              ? {
+                  unreadCount: sql`${schema.conversations.unreadCount} + 1`,
+                  awaitingSince: sql`coalesce(${schema.conversations.awaitingSince}, ${input.sentAt})`,
+                }
+              : {}),
           }
         : {}),
     })
     .where(eq(schema.conversations.id, conversation.id));
+
+  const platformLabel = input.platform === "INSTAGRAM" ? "Instagram" : "Messenger";
+  if (isIn && live && created) {
+    await notify({
+      workspaceId: input.page.workspaceId,
+      to: "all",
+      type: "NEW_CONVERSATION",
+      title: `Ny besked fra ${conversation.name ?? "en kunde"} på ${platformLabel}`,
+      body: preview(input.text, input.attachments),
+      href: `/indbakke/${conversation.id}`,
+    });
+  }
+  if (!isIn) {
+    // Et svar (fra Kundespor eller fx Meta Business Suite) afslutter ventetiden.
+    await respondToConversation(input.page.workspaceId, conversation.id, input.platform, {
+      log: true,
+      at: input.sentAt,
+      userId: input.sentById,
+    });
+    if (conversation.contactId) {
+      await respondToContact(input.page.workspaceId, conversation.contactId, { log: true, userId: input.sentById });
+    }
+  }
   return conversation;
 }
 

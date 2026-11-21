@@ -1,10 +1,11 @@
 import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import { changeRole, removeMember } from "@/app/actions/members";
+import { changeRole, removeMember, resendInvite } from "@/app/actions/members";
 import { Button, Card, Select } from "@/components/ui";
 import { db, schema } from "@/db";
 import { roleEnum } from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth";
+import { isEmailConfigured } from "@/lib/email";
 import { hasRole, ROLE_LABELS } from "@/lib/roles";
 import { AddMemberForm } from "./add-member-form";
 
@@ -14,6 +15,7 @@ export default async function MembersPage() {
   const { user, workspace } = await requireWorkspace();
   const isAdmin = hasRole(workspace.role, "ADMIN");
   const isOwner = workspace.role === "OWNER";
+  const emailEnabled = isEmailConfigured();
 
   const members = await db
     .select({
@@ -45,7 +47,7 @@ export default async function MembersPage() {
                   <p className="truncate text-sm text-slate-500">{m.email}</p>
                 </div>
                 {editable ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <form action={changeRole} className="flex items-center gap-2">
                       <input type="hidden" name="userId" value={m.id} />
                       <Select name="role" defaultValue={m.role} aria-label={`Rolle for ${m.name}`}>
@@ -59,6 +61,14 @@ export default async function MembersPage() {
                         Gem
                       </Button>
                     </form>
+                    {emailEnabled && (
+                      <form action={resendInvite}>
+                        <input type="hidden" name="userId" value={m.id} />
+                        <Button variant="secondary" type="submit" title="Send et nyt link til at vælge adgangskode">
+                          Send invitation igen
+                        </Button>
+                      </form>
+                    )}
                     <form action={removeMember}>
                       <input type="hidden" name="userId" value={m.id} />
                       <Button variant="danger" type="submit">
@@ -80,9 +90,13 @@ export default async function MembersPage() {
       {isAdmin && (
         <Card
           title="Tilføj medlem"
-          description="Opret en konto med en midlertidig adgangskode, som personen selv ændrer under Min profil. Har personen allerede en konto, får vedkommende blot adgang til dette firma."
+          description={
+            emailEnabled
+              ? "Personen får en e-mail med et link til at vælge sin egen adgangskode. Har personen allerede en konto, får vedkommende blot adgang til dette firma."
+              : "Opret en konto med en midlertidig adgangskode, som personen selv ændrer under Min profil. Har personen allerede en konto, får vedkommende blot adgang til dette firma."
+          }
         >
-          <AddMemberForm roles={assignable.map((r) => ({ value: r, label: ROLE_LABELS[r] }))} />
+          <AddMemberForm roles={assignable.map((r) => ({ value: r, label: ROLE_LABELS[r] }))} emailEnabled={emailEnabled} />
         </Card>
       )}
     </div>

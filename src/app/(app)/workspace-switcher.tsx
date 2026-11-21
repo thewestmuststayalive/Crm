@@ -23,7 +23,7 @@ export function WorkspaceSwitcher({
         defaultValue={current}
         key={current}
         onChange={() => formRef.current?.requestSubmit()}
-        className="w-full"
+        className="w-full border-white/15 bg-white/10 text-white focus:border-brand-300 [&>option]:text-slate-900"
       >
         {workspaces.map((w) => (
           <option key={w.id} value={w.id}>

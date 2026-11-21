@@ -112,6 +112,13 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
   await expect(list).toContainText("Ida Insta");
   await expect(list).toContainText("Gammel Kunde");
 
+  // Begge nye samtaler venter på svar
+  await page.goto("/venter");
+  const waiting = page.getByRole("list", { name: "Venter på svar" });
+  await expect(waiting).toContainText("Mads Messenger");
+  await expect(waiting).toContainText("Ida Insta");
+  await page.goto("/indbakke");
+
   // Svar på Messenger
   await list.getByRole("link", { name: /Mads Messenger/ }).click();
   await expect(page.getByRole("list", { name: "Beskeder" })).toContainText("Har I tid på fredag?");
@@ -139,6 +146,13 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
   await page.reload();
   await expect(page.getByRole("list", { name: "Beskeder" }).getByText("Ja, kl. 10 passer fint")).toHaveCount(1);
 
+  // Når der er svaret, venter Mads ikke længere – men Ida gør
+  await page.goto("/venter");
+  await expect(waiting).not.toContainText("Mads Messenger");
+  await expect(waiting).toContainText("Ida Insta");
+  await page.goto("/indbakke");
+  await list.getByRole("link", { name: /Mads Messenger/ }).click();
+
   // Opret afsenderen som lead
   await page.getByRole("button", { name: "Opret som lead" }).click();
   await expect(page.getByRole("link", { name: "Kontakt: Mads Messenger" })).toBeVisible();
@@ -150,9 +164,9 @@ test("beskeder fra Messenger og Instagram lander i indbakken, og man kan svare",
 });
 
 test("annoncerapport viser forbrug, leads og pris pr. lead", async ({ page, request }) => {
-  const cron = await request.get("/api/cron/meta-insights", { headers: { authorization: "Bearer test-cron" } });
+  const cron = await request.get("/api/cron/daily", { headers: { authorization: "Bearer test-cron" } });
   expect(cron.status()).toBe(200);
-  expect((await request.get("/api/cron/meta-insights")).status()).toBe(401);
+  expect((await request.get("/api/cron/daily")).status()).toBe(401);
 
   await page.goto("/annoncer");
   const table = page.locator("table");

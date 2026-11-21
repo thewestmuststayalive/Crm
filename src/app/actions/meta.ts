@@ -201,5 +201,5 @@ export async function disconnectMeta() {
   await db.delete(schema.metaAdAccounts).where(eq(schema.metaAdAccounts.workspaceId, workspace.id));
   await db.delete(schema.adInsights).where(eq(schema.adInsights.workspaceId, workspace.id));
   await db.delete(schema.metaConnections).where(eq(schema.metaConnections.workspaceId, workspace.id));
-  done("Facebook er frakoblet. Samtaler fra de frakoblede sider er slettet fra CRM'et.");
+  done("Facebook er frakoblet. Samtaler fra de frakoblede sider er slettet fra Kundespor.");
 }

@@ -46,7 +46,12 @@ export async function renameWorkspace(_prev: ActionState, formData: FormData): P
   const { workspace } = await requireRole("ADMIN");
   const parsed = nameSchema.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  await db.update(schema.workspaces).set({ name: parsed.data }).where(eq(schema.workspaces.id, workspace.id));
+  const target = z.coerce.number().int().min(5).max(7 * 24 * 60).safeParse(formData.get("responseTargetMinutes"));
+  if (!target.success) return { error: "Svartidsmålet skal være mellem 5 minutter og 7 dage" };
+  await db
+    .update(schema.workspaces)
+    .set({ name: parsed.data, responseTargetMinutes: target.data })
+    .where(eq(schema.workspaces.id, workspace.id));
   revalidatePath("/", "layout");
-  return { success: "Firmanavnet er gemt" };
+  return { success: "Firmaoplysningerne er gemt" };
 }

@@ -1,19 +1,50 @@
 @import "tailwindcss";
 
+/* Kundespor – brandets farver og skrifter. Se docs/brand.md. */
+
+@theme {
+  /* Sporgrøn: rolig, tillidsvækkende hovedfarve */
+  --color-brand-50: #eefaf6;
+  --color-brand-100: #d5f2e8;
+  --color-brand-200: #aee4d3;
+  --color-brand-300: #7bcfb9;
+  --color-brand-400: #48b39b;
+  --color-brand-500: #2a9781;
+  --color-brand-600: #1f7a69;
+  --color-brand-700: #1b6257;
+  --color-brand-800: #194f47;
+  --color-brand-900: #17413b;
+  --color-brand-950: #0a2622;
+
+  /* Gylden accent: "målet" for enden af sporet – bruges sparsomt til fremhævninger */
+  --color-accent-100: #fdf0d3;
+  --color-accent-300: #f8cd78;
+  --color-accent-400: #f5b94a;
+  --color-accent-500: #ee9f22;
+  --color-accent-700: #a95f0c;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
-  --background: #f6f7f9;
+  --background: #f5f7f6;
   --foreground: #111827;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }

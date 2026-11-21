@@ -111,7 +111,7 @@ export default async function LeadFormsPage() {
                 <p className="text-sm font-medium text-slate-700">Kode til hjemmesiden</p>
                 <CopyButton text={snippet} />
               </div>
-              <pre className="max-h-64 overflow-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
+              <pre className="max-h-64 overflow-auto rounded-md bg-brand-950 p-3 text-xs text-brand-50">
                 <code>{snippet}</code>
               </pre>
               <p className="text-xs text-slate-500">

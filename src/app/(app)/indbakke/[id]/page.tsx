@@ -123,7 +123,7 @@ export default async function ConversationPage({ params }: PageProps<"/indbakke/
               <div
                 className={cx(
                   "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
-                  out ? "bg-slate-900 text-white" : "bg-white text-slate-900",
+                  out ? "bg-brand-700 text-white" : "bg-white text-slate-900",
                 )}
               >
                 {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
