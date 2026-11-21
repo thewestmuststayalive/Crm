@@ -4,7 +4,11 @@ import { uid } from "./helpers";
 /** Seneste link til et tilbud sendt på e-mail til `to` (via den falske Resend i e2e/meta-mock.ts). */
 async function quoteEmailTo(request: APIRequestContext, to: string, subject: RegExp) {
   const res = await request.get("http://localhost:3999/__requests");
-  const log = (await res.json()) as { method: string; path: string; body: { to: string; subject: string; text: string } }[];
+  const log = (await res.json()) as {
+    method: string;
+    path: string;
+    body: { to: string; subject: string; text: string };
+  }[];
   const email = log.filter((r) => r.path === "/emails" && r.body.to === to && subject.test(r.body.subject)).at(-1);
   if (!email) throw new Error(`Ingen e-mail til ${to} med emne ${subject}`);
   return { ...email.body, link: email.body.text.match(/https?:\/\/\S+\/tilbud\/[A-Za-z0-9_-]+/)?.[0] ?? null };
@@ -93,7 +97,10 @@ test("tilbud: linjer og moms, send, kunden åbner og accepterer, dealen vindes",
   await expect(page.locator("header")).toContainText("Vundet");
   await expect(page.locator("header")).toContainText("2.951");
   await expect(page.locator("ol")).toContainText(`accepteret online af ${contactName}`);
-  await page.getByRole("link", { name: new RegExp(dealTitle) }).first().click();
+  await page
+    .getByRole("link", { name: new RegExp(dealTitle) })
+    .first()
+    .click();
   await expect(page.getByText("Tilbuddet er besvaret og kan ikke ændres")).toBeVisible();
   await expect(page.getByRole("button", { name: "Slet" })).toHaveCount(0);
 

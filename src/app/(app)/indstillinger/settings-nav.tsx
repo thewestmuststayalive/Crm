@@ -9,8 +9,10 @@ const tabs = [
   { href: "/indstillinger/salgsfaser", label: "Salgsfaser" },
   { href: "/indstillinger/felter", label: "Egne felter" },
   { href: "/indstillinger/automatik", label: "Automatik" },
+  { href: "/indstillinger/anmeldelser", label: "Anmeldelser" },
   { href: "/indstillinger/kontaktformular", label: "Kontaktformular" },
   { href: "/indstillinger/meta", label: "Facebook & Instagram" },
+  { href: "/indstillinger/persondata", label: "Persondata" },
   { href: "/indstillinger/profil", label: "Min profil" },
 ];
 

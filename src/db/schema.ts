@@ -54,6 +54,13 @@ export const workspaces = pgTable("workspaces", {
   phone: text("phone"),
   website: text("website"),
   quoteTerms: text("quote_terms"),
+  // Anmodning om anmeldelse efter en vundet deal.
+  reviewEnabled: boolean("review_enabled").notNull().default(false),
+  reviewUrl: text("review_url"),
+  reviewDelayDays: integer("review_delay_days").notNull().default(3),
+  reviewMessage: text("review_message"),
+  /** Slet leads uden aktivitet efter så mange måneder (GDPR-dataminimering). Null = slået fra. */
+  leadRetentionMonths: integer("lead_retention_months"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -144,6 +151,8 @@ export const contacts = pgTable(
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     /** Sat når kontakten har henvendt sig og venter på at blive kontaktet; nulstilles når nogen svarer. */
     awaitingSince: timestamp("awaiting_since", { withTimezone: true }),
+    /** Personen har frabedt sig e-mails (fx anmodninger om anmeldelse). */
+    emailOptOutAt: timestamp("email_opt_out_at", { withTimezone: true }),
     custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
     ...timestamps,
   },
@@ -648,4 +657,40 @@ export const quoteLines = pgTable(
     discountPct: numeric("discount_pct", { precision: 5, scale: 2 }).notNull().default("0"),
   },
   (t) => [index("quote_lines_quote_idx").on(t.quoteId, t.position)],
+);
+
+export const reviewRequestStatusEnum = pgEnum("review_request_status", [
+  "SCHEDULED",
+  "SENT",
+  "CLICKED",
+  "SKIPPED",
+]);
+export type ReviewRequestStatus = (typeof reviewRequestStatusEnum.enumValues)[number];
+
+/** Anmodning om en anmeldelse, planlagt når en deal vindes og sendt af den daglige kørsel. */
+export const reviewRequests = pgTable(
+  "review_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    status: reviewRequestStatusEnum("status").notNull().default("SCHEDULED"),
+    /** Hemmeligt id i linkene i e-mailen (klik og afmelding). */
+    token: text("token").notNull().unique(),
+    sendAt: timestamp("send_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    clickedAt: timestamp("clicked_at", { withTimezone: true }),
+    skipReason: text("skip_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("review_requests_due_idx").on(t.status, t.sendAt),
+    index("review_requests_workspace_idx").on(t.workspaceId, t.createdAt),
+    index("review_requests_contact_idx").on(t.contactId),
+  ],
 );

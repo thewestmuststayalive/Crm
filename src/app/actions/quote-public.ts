@@ -105,6 +105,7 @@ export async function acceptQuote(_prev: ActionState, formData: FormData): Promi
       to: q.contactEmail,
       subject: `Bekræftelse: tilbud #${q.quote.number} er accepteret`,
       ...brandedEmail({
+        sender: q.seller.name,
         heading: "Tak for din accept",
         paragraphs: [
           `Vi har modtaget din accept af tilbuddet "${q.quote.title}" på ${formatOre(totals.total)} inkl. moms.`,

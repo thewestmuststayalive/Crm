@@ -6,6 +6,7 @@ import { logEvent } from "./crm";
 import { formatKr } from "./labels";
 import { notify } from "./notify";
 import { getStage, type Stage } from "./pipelines";
+import { scheduleReviewRequest } from "./reviews";
 
 type DealRow = typeof schema.deals.$inferSelect;
 
@@ -60,6 +61,11 @@ export async function onStageChange(deal: DealRow, newStage: Stage, userId: stri
           ),
         );
       await respondToContact(deal.workspaceId, deal.contactId, { log: false });
+      try {
+        await scheduleReviewRequest(deal);
+      } catch (error) {
+        console.error("Anmodning om anmeldelse kunne ikke planlægges", error);
+      }
     }
   }
 }

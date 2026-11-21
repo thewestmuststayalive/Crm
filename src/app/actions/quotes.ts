@@ -159,6 +159,7 @@ export async function sendQuote(quoteId: string): Promise<ActionState> {
       to: contact.email,
       subject: `Tilbud #${quote.number} fra ${workspace.name}: ${quote.title}`,
       ...brandedEmail({
+        sender: workspace.name,
         heading: `Hej ${contact.name.split(" ")[0]}`,
         paragraphs: [
           `Tak for din interesse. Her er vores tilbud på "${quote.title}" på ${formatOre(totals.total)} inkl. moms.`,
