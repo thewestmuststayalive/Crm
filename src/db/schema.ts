@@ -1,7 +1,9 @@
 import {
+  boolean,
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -185,6 +187,45 @@ export const tasks = pgTable(
     index("tasks_contact_idx").on(t.contactId),
     index("tasks_company_idx").on(t.companyId),
     index("tasks_deal_idx").on(t.dealId),
+  ],
+);
+
+/** En kontaktformular på en hjemmeside. Nøglen indgår i den offentlige URL. */
+export const leadForms = pgTable(
+  "lead_forms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    key: text("key").notNull().unique(),
+    redirectUrl: text("redirect_url"),
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    createDeal: boolean("create_deal").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("lead_forms_workspace_idx").on(t.workspaceId)],
+);
+
+/** Log over modtagne henvendelser (bruges også til at begrænse spam pr. IP). */
+export const leadSubmissions = pgTable(
+  "lead_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    formId: uuid("form_id").references(() => leadForms.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    ipHash: text("ip_hash"),
+    payload: jsonb("payload").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lead_submissions_form_idx").on(t.formId, t.createdAt),
+    index("lead_submissions_ip_idx").on(t.ipHash, t.createdAt),
   ],
 );
 

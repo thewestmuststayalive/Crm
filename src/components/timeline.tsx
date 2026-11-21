@@ -32,7 +32,7 @@ export function Timeline({
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{ACTIVITY_LABELS[item.type]}</Badge>
-                <span>{item.authorName ?? "Slettet bruger"}</span>
+                <span>{item.authorName ?? "System"}</span>
                 <span>·</span>
                 <time dateTime={item.createdAt.toISOString()}>{formatDateTime(item.createdAt)}</time>
                 {showContact && item.contactId && (

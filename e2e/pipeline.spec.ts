@@ -28,11 +28,14 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
   await expect(page.locator("ol")).toContainText("oprettet");
   const dealUrl = page.url();
 
-  // Træk kortet fra "Ny" til "Vundet"
+  // Træk kortet fra "Ny" til "Vundet". Vi sender drag-hændelserne direkte, så testen ikke
+  // afhænger af scroll-position, når kolonnen indeholder mange kort fra andre tests.
   await page.goto("/pipeline");
   const card = page.locator("li", { hasText: dealTitle });
   await expect(page.locator('section[data-stage="NEW"]')).toContainText(dealTitle);
-  await card.dragTo(page.locator('section[data-stage="WON"]'));
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  await card.dispatchEvent("dragstart", { dataTransfer });
+  await page.locator('section[data-stage="WON"]').dispatchEvent("drop", { dataTransfer });
   await expect(page.locator('section[data-stage="WON"]')).toContainText(dealTitle);
   await page.reload();
   await expect(page.locator('section[data-stage="WON"]')).toContainText(dealTitle);

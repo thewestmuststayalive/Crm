@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/indstillinger", label: "Firma" },
   { href: "/indstillinger/medlemmer", label: "Medlemmer" },
+  { href: "/indstillinger/kontaktformular", label: "Kontaktformular" },
   { href: "/indstillinger/profil", label: "Min profil" },
 ];
 
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-4 border-b border-slate-200">
+    <nav className="flex gap-4 overflow-x-auto border-b border-slate-200 whitespace-nowrap">
       {tabs.map((tab) => {
         const active = pathname === tab.href;
         return (
