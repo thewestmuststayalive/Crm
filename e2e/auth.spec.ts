@@ -24,6 +24,19 @@ test.describe("uden login", () => {
     );
     await expect(page.locator("#email")).toHaveValue(OWNER.email);
   });
+
+  test("for mange forkerte forsøg blokerer login midlertidigt", async ({ page }) => {
+    const email = `gaet-${uid()}@example.com`;
+    await page.goto("/login");
+    for (let i = 0; i < 6; i++) {
+      await page.fill("#email", email);
+      await page.fill("#password", `forkert-${i}`);
+      await page.getByRole("button", { name: "Log ind" }).click();
+      const expected = i < 5 ? "Forkert e-mail eller adgangskode" : "For mange forkerte forsøg";
+      await expect(page.getByRole("alert").filter({ hasText: expected })).toBeVisible();
+      await page.waitForFunction(() => (document.querySelector("#password") as HTMLInputElement).value === "");
+    }
+  });
 });
 
 test("ejer opretter et nyt firma og kan skifte mellem firmaer", async ({ page }) => {

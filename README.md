@@ -1,19 +1,23 @@
 # CRM
 
-Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma (workspace) har sine egne data og medlemmer, og du skifter mellem dem i menuen.
+Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma (workspace) har sine egne data og medlemmer, og du skifter mellem dem i menuen – eller ser dem samlet på dashboardet.
 
-## Status
+**Guides:** [Sæt i drift (Vercel + Neon)](docs/drift.md) · [Opsætning af Facebook og Instagram](docs/meta-opsaetning.md)
 
-| Fase | Indhold | Status |
-| ---- | ------- | ------ |
-| 1 | Login, firmaer (workspaces), medlemmer og roller | Færdig |
-| 2 | Kunder, kontakter og noter | Færdig |
-| 3 | Pipeline og opgaver | Færdig |
-| 4 | Kontaktformular og leads | Færdig |
-| 5 | Meta: Lead Ads og annonceforbrug | Færdig (afventer nøgler) |
-| 6 | Indbakke: Messenger og Instagram | Færdig (afventer nøgler) |
-| 7 | Dashboard med nøgletal | Færdig |
-| 8 | Guide til hosting og Meta-godkendelse | Planlagt |
+## Funktioner
+
+| Område | Indhold |
+| ------ | ------- |
+| Firmaer og brugere | Flere firmaer pr. konto, roller (ejer/admin/medarbejder), beskyttelse mod gætteforsøg ved login |
+| Kunder | Kontaktpersoner og virksomheder, status (lead/kunde), kilde, ansvarlig, søgning, CSV-eksport |
+| Tidslinje | Noter, opkald, e-mails, møder og automatiske hændelser |
+| Pipeline | Deals med værdi og faser, kanban med træk-og-slip; vundet deal gør kontakten til kunde |
+| Opgaver | Frist og ansvarlig; forfaldne, i dag og kommende |
+| Kontaktformular | Kode til dine hjemmesider; henvendelser bliver automatisk til leads, deals og opgaver |
+| Meta Lead Ads | Leads fra Facebook/Instagram-annoncer importeres automatisk (afventer nøgler) |
+| Indbakke | Messenger og Instagram Direct samlet, med svar fra CRM'et (afventer nøgler) |
+| Annoncer | Forbrug, leads, pris pr. lead og afkast pr. kampagne (afventer nøgler) |
+| Dashboard | Nøgletal for ét firma eller alle samlet |
 
 ## Teknologi
 
@@ -21,6 +25,7 @@ Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma 
 - PostgreSQL med Drizzle ORM
 - Tailwind CSS
 - Egen login-løsning: adgangskoder hashes med scrypt, og sessioner gemmes i databasen (kun en SHA-256-hash af tokenet)
+- Meta-tokens krypteres med AES-256-GCM (`ENCRYPTION_KEY`)
 
 ## Kom i gang lokalt
 
@@ -41,8 +46,8 @@ npm run dev
 | Rolle | Kan |
 | ----- | --- |
 | Ejer | Alt, inklusive at gøre andre til ejere |
-| Admin | Omdøbe firmaet, tilføje og fjerne medlemmer (ikke ejere) |
-| Medarbejder | Arbejde med CRM-data i firmaet |
+| Admin | Omdøbe firmaet, styre medlemmer (ikke ejere), kontaktformularer og Meta-forbindelse, slette data |
+| Medarbejder | Arbejde med kunder, deals, opgaver og beskeder i firmaet |
 
 Et firma har altid mindst én ejer.
 
@@ -58,15 +63,22 @@ Et firma har altid mindst én ejer.
 | `npm run db:studio` | Se databasen i browseren |
 | `npm run test:e2e` | Browsertests (kræver `npm run build` og databasen `crm_test`) |
 
+E2E-testene simulerer Metas API (`e2e/meta-mock.ts`), så hele Meta-integrationen testes uden rigtige nøgler. GitHub Actions kører lint, typetjek, build og alle tests ved hver pull request.
+
 ## Struktur
 
 ```
 src/
   app/
-    (auth)/        login og oprettelse
-    (app)/         alt bag login: dashboard og indstillinger
-    actions/       server actions (al skrivning til databasen)
-  db/              databaseskema og forbindelse
-  lib/             login, sessioner og roller
-drizzle/           SQL-migreringer
+    (auth)/          login og oprettelse
+    (app)/           alt bag login: dashboard, kunder, pipeline, opgaver, indbakke, annoncer, indstillinger
+    actions/         server actions (al skrivning til databasen)
+    api/leads/       offentligt endpoint til kontaktformularer
+    api/meta/        Facebook-login og webhook til leads og beskeder
+    api/cron/        daglig hentning af annoncedata
+  db/                databaseskema og forbindelse
+  lib/               login, roller, CRM-forespørgsler, leads, Meta-klient
+drizzle/             SQL-migreringer
+e2e/                 Playwright-tests og simuleret Meta API
+docs/                guides til drift og Meta
 ```
