@@ -5,13 +5,13 @@ import { useActionState } from "react";
 import type { ActionState } from "@/app/actions/types";
 import { buttonClass } from "@/components/styles";
 import { Field, FormMessage, Input, Select, SubmitButton } from "@/components/ui";
-import { SOURCE_LABELS, STAGE_LABELS } from "@/lib/labels";
+import { SOURCE_LABELS } from "@/lib/labels";
 
 type Option = { id: string; name: string };
 export type DealFormValues = {
   title?: string;
   value?: number | string;
-  stage?: string;
+  stageId?: string | null;
   source?: string;
   contactId?: string | null;
   companyId?: string | null;
@@ -26,6 +26,7 @@ export function DealForm({
   contacts,
   companies,
   members,
+  pipelines,
   submitLabel,
   cancelHref,
 }: {
@@ -34,6 +35,7 @@ export function DealForm({
   contacts: Option[];
   companies: Option[];
   members: Option[];
+  pipelines: { id: string; name: string; stages: { id: string; name: string }[] }[];
   submitLabel: string;
   cancelHref: string;
 }) {
@@ -52,12 +54,22 @@ export function DealForm({
         <Input id="d-value" name="value" inputMode="decimal" defaultValue={v.value?.toString() ?? ""} placeholder="0" />
       </Field>
       <Field label="Fase" htmlFor="d-stage">
-        <Select id="d-stage" name="stage" defaultValue={v.stage ?? "NEW"} className="w-full">
-          {Object.entries(STAGE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
+        <Select id="d-stage" name="stageId" defaultValue={v.stageId ?? pipelines[0]?.stages[0]?.id} className="w-full">
+          {pipelines.length === 1
+            ? pipelines[0].stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))
+            : pipelines.map((p) => (
+                <optgroup key={p.id} label={p.name}>
+                  {p.stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
         </Select>
       </Field>
       <Field label="Kontaktperson" htmlFor="d-contact">

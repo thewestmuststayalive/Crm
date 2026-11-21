@@ -1,7 +1,7 @@
 import "server-only";
 import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { OPEN_STAGES, todayIso } from "./labels";
+import { todayIso } from "./labels";
 import { getResponseStats } from "./waiting";
 
 // Nøgletal til dashboardet. Tager en liste af workspace-id'er, så det kan vise
@@ -29,11 +29,11 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
     db
       .select({ value: sql<number>`coalesce(sum(${schema.deals.value}), 0)::bigint`, n: count() })
       .from(schema.deals)
-      .where(and(inArray(schema.deals.workspaceId, workspaceIds), inArray(schema.deals.stage, [...OPEN_STAGES]))),
+      .where(and(inArray(schema.deals.workspaceId, workspaceIds), eq(schema.deals.status, "OPEN"))),
     db
       .select({ value: sql<number>`coalesce(sum(${schema.deals.value}), 0)::bigint`, n: count() })
       .from(schema.deals)
-      .where(and(inArray(schema.deals.workspaceId, workspaceIds), eq(schema.deals.stage, "WON"), gte(schema.deals.closedAt, monthStart))),
+      .where(and(inArray(schema.deals.workspaceId, workspaceIds), eq(schema.deals.status, "WON"), gte(schema.deals.closedAt, monthStart))),
     db
       .select({ value: count() })
       .from(schema.tasks)

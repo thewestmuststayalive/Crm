@@ -11,7 +11,8 @@ import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, getDeal, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
-import { formatDateTime, formatIsoDate, formatKr, STAGE_LABELS, STAGE_STYLES } from "@/lib/labels";
+import { DEAL_STATUS_STYLES, formatDateTime, formatIsoDate, formatKr } from "@/lib/labels";
+import { getPipelines } from "@/lib/pipelines";
 import { hasRole } from "@/lib/roles";
 import { StageSelect } from "../stage-select";
 
@@ -23,14 +24,17 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
   const deal = await getDeal(workspace.id, id);
   if (!deal) notFound();
 
-  const [contact, company, ownerName, timeline, tasks, members] = await Promise.all([
+  const [contact, company, ownerName, timeline, tasks, members, pipelines] = await Promise.all([
     deal.contactId ? getContact(workspace.id, deal.contactId) : null,
     deal.companyId ? getCompany(workspace.id, deal.companyId) : null,
     getUserName(deal.ownerId),
     getTimeline(workspace.id, { dealId: deal.id }),
     getTasks(workspace.id, { dealId: deal.id }),
     getMemberOptions(workspace.id),
+    getPipelines(workspace.id),
   ]);
+  const pipeline = pipelines.find((p) => p.id === deal.pipelineId);
+  const stage = pipeline?.stages.find((s) => s.id === deal.stageId);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -40,12 +44,12 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-base font-semibold text-slate-800">{formatKr(deal.value)}</span>
-            <Badge className={STAGE_STYLES[deal.stage]}>{STAGE_LABELS[deal.stage]}</Badge>
+            <Badge className={DEAL_STATUS_STYLES[deal.status]}>{stage?.name}</Badge>
           </span>
         }
         actions={
           <>
-            <StageSelect dealId={deal.id} stage={deal.stage} />
+            <StageSelect dealId={deal.id} stageId={deal.stageId} stages={pipeline?.stages ?? []} />
             <Link href={`/pipeline/${deal.id}/rediger`} className={buttonClass("secondary")}>
               Redigér
             </Link>
@@ -85,7 +89,8 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
                 <SourceBadge source={deal.source} />
               </DetailRow>
               {deal.closedAt && <DetailRow label="Lukket">{formatDateTime(deal.closedAt)}</DetailRow>}
-              {deal.stage === "LOST" && <DetailRow label="Årsag">{deal.lostReason}</DetailRow>}
+              {pipelines.length > 1 && <DetailRow label="Pipeline">{pipeline?.name}</DetailRow>}
+              {deal.status === "LOST" && <DetailRow label="Årsag">{deal.lostReason}</DetailRow>}
               <DetailRow label="Oprettet">{formatDateTime(deal.createdAt)}</DetailRow>
             </dl>
           </Card>

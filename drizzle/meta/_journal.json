@@ -71,6 +71,20 @@
       "when": 1795279085822,
       "tag": "0009_automations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795280089340,
+      "tag": "0010_pipelines",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795280111151,
+      "tag": "0011_pipelines_required",
+      "breakpoints": true
     }
   ]
 }

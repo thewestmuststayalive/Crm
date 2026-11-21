@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { DealSummary } from "@/lib/crm";
-import { formatKr, STAGE_LABELS, STAGE_STYLES } from "@/lib/labels";
+import { DEAL_STATUS_STYLES, formatKr } from "@/lib/labels";
 import { Badge } from "./display";
 import { buttonClass } from "./styles";
 import { Card } from "./ui";
@@ -20,7 +20,7 @@ export function DealsCard({ deals, newHref }: { deals: DealSummary[]; newHref: s
                 </Link>
                 <p className="text-xs text-slate-500">{formatKr(d.value)}</p>
               </div>
-              <Badge className={STAGE_STYLES[d.stage]}>{STAGE_LABELS[d.stage]}</Badge>
+              <Badge className={DEAL_STATUS_STYLES[d.status]}>{d.stageName}</Badge>
             </li>
           ))}
         </ul>

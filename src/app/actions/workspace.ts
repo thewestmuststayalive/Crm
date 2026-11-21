@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getMemberships, requireRole, requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
+import { createDefaultPipeline } from "@/lib/pipelines";
 import type { ActionState } from "./types";
 
 const nameSchema = z.string().trim().min(1, "Firmanavn mangler").max(100);
@@ -27,6 +28,7 @@ export async function createWorkspace(_prev: ActionState, formData: FormData): P
       .values({ name: parsed.data })
       .returning({ id: schema.workspaces.id });
     await tx.insert(schema.memberships).values({ userId: user.id, workspaceId: ws.id, role: "OWNER" });
+    await createDefaultPipeline(tx, ws.id);
     return ws.id;
   });
 

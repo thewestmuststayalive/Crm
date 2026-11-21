@@ -144,8 +144,42 @@ export const contacts = pgTable(
   ],
 );
 
-export const dealStageEnum = pgEnum("deal_stage", ["NEW", "CONTACTED", "PROPOSAL", "WON", "LOST"]);
-export type DealStage = (typeof dealStageEnum.enumValues)[number];
+/** Om en deal er åben, vundet eller tabt. Afledt af den fase, dealen står i. */
+export const dealStatusEnum = pgEnum("deal_status", ["OPEN", "WON", "LOST"]);
+export type DealStatus = (typeof dealStatusEnum.enumValues)[number];
+
+/** En salgsproces. Hvert firma har mindst én ("Salg") og kan oprette flere. */
+export const pipelines = pgTable(
+  "pipelines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pipelines_workspace_idx").on(t.workspaceId, t.position)],
+);
+
+/** En fase i en pipeline. `kind` afgør om deals i fasen er åbne, vundne eller tabte. */
+export const pipelineStages = pgTable(
+  "pipeline_stages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    pipelineId: uuid("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    kind: dealStatusEnum("kind").notNull().default("OPEN"),
+  },
+  (t) => [index("pipeline_stages_pipeline_idx").on(t.pipelineId, t.position)],
+);
 
 /** En salgsmulighed i pipelinen. Værdi i hele kroner. */
 export const deals = pgTable(
@@ -157,7 +191,13 @@ export const deals = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     value: integer("value").notNull().default(0),
-    stage: dealStageEnum("stage").notNull().default("NEW"),
+    pipelineId: uuid("pipeline_id")
+      .notNull()
+      .references(() => pipelines.id, { onDelete: "restrict" }),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => pipelineStages.id, { onDelete: "restrict" }),
+    status: dealStatusEnum("status").notNull().default("OPEN"),
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
@@ -168,7 +208,8 @@ export const deals = pgTable(
     ...timestamps,
   },
   (t) => [
-    index("deals_workspace_stage_idx").on(t.workspaceId, t.stage),
+    index("deals_workspace_status_idx").on(t.workspaceId, t.status),
+    index("deals_stage_idx").on(t.stageId),
     index("deals_contact_idx").on(t.contactId),
     index("deals_company_idx").on(t.companyId),
   ],

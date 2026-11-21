@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
 import { getDummyHash, hashPassword, verifyPassword } from "@/lib/password";
+import { createDefaultPipeline } from "@/lib/pipelines";
 import { clearFailedLogins, isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
 import { createSession, deleteAllSessionsForUser, deleteSession } from "@/lib/session";
 import { pickValues, type ActionState } from "./types";
@@ -84,6 +85,7 @@ export async function register(_prev: ActionState, formData: FormData): Promise<
     await tx
       .insert(schema.memberships)
       .values({ userId: user.id, workspaceId: ws.id, role: "OWNER" });
+    await createDefaultPipeline(tx, ws.id);
     return { userId: user.id, workspaceId: ws.id };
   });
 

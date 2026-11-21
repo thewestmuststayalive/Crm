@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/display";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
 import { getCompanyOptions, getContactOptions, getDeal, getMemberOptions } from "@/lib/crm";
+import { getPipelines } from "@/lib/pipelines";
 import { DealForm } from "../../deal-form";
 
 export const metadata: Metadata = { title: "Redigér deal" };
@@ -14,10 +15,11 @@ export default async function EditDealPage({ params }: PageProps<"/pipeline/[id]
   const { workspace } = await requireWorkspace();
   const deal = await getDeal(workspace.id, id);
   if (!deal) notFound();
-  const [contacts, companies, members] = await Promise.all([
+  const [contacts, companies, members, pipelines] = await Promise.all([
     getContactOptions(workspace.id),
     getCompanyOptions(workspace.id),
     getMemberOptions(workspace.id),
+    getPipelines(workspace.id),
   ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function EditDealPage({ params }: PageProps<"/pipeline/[id]
           contacts={contacts}
           companies={companies}
           members={members}
+          pipelines={pipelines}
           submitLabel="Gem ændringer"
           cancelHref={`/pipeline/${id}`}
         />
