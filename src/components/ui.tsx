@@ -2,28 +2,43 @@
 
 import type { ComponentProps, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-
-function cx(...classes: (string | false | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
-const buttonStyles = {
-  primary: "bg-slate-900 text-white hover:bg-slate-700",
-  secondary: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
-  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
-};
+import { buttonClass, cx, type ButtonVariant } from "./styles";
 
 export function Button({
   variant = "primary",
   className,
   ...props
-}: ComponentProps<"button"> & { variant?: keyof typeof buttonStyles }) {
+}: ComponentProps<"button"> & { variant?: ButtonVariant }) {
+  return <button {...props} className={buttonClass(variant, className)} />;
+}
+
+/** Submit-knap der beder om bekræftelse før en handling, der ikke kan fortrydes. */
+export function ConfirmButton({
+  message,
+  children,
+  variant = "danger",
+  ...props
+}: ComponentProps<typeof Button> & { message: string }) {
   return (
-    <button
+    <Button
+      type="submit"
+      variant={variant}
+      {...props}
+      onClick={(e) => {
+        if (!window.confirm(message)) e.preventDefault();
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  return (
+    <textarea
       {...props}
       className={cx(
-        "inline-flex items-center justify-center rounded-md px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
-        buttonStyles[variant],
+        "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200",
         className,
       )}
     />

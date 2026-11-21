@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
 import { getDummyHash, hashPassword, verifyPassword } from "@/lib/password";
+import { clearFailedLogins, isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
 import { createSession, deleteAllSessionsForUser, deleteSession } from "@/lib/session";
 import { pickValues, type ActionState } from "./types";
 
@@ -26,6 +27,10 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   const values = pickValues(formData, ["email"]);
   if (!parsed.success) return { error: "Forkert e-mail eller adgangskode", values };
 
+  if (await isLoginBlocked(parsed.data.email)) {
+    return { error: "For mange forkerte forsøg. Vent 15 minutter, og prøv igen.", values };
+  }
+
   const [user] = await db
     .select({ id: schema.users.id, passwordHash: schema.users.passwordHash })
     .from(schema.users)
@@ -33,8 +38,12 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
     .limit(1);
 
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? (await getDummyHash()));
-  if (!user || !ok) return { error: "Forkert e-mail eller adgangskode", values };
+  if (!user || !ok) {
+    await recordFailedLogin(parsed.data.email);
+    return { error: "Forkert e-mail eller adgangskode", values };
+  }
 
+  await clearFailedLogins(parsed.data.email);
   await createSession(user.id);
   redirect("/dashboard");
 }

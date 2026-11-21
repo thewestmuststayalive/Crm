@@ -7,10 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:e2e": "playwright test",
+    "vercel-build": "if [ -n \"$DATABASE_URL\" ]; then drizzle-kit migrate; else echo \"DATABASE_URL mangler - kobl databasen på i Vercel og deploy igen\"; fi && next build"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
@@ -22,6 +24,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
