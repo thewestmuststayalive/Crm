@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items: { href: string; label: string; soon?: boolean }[] = [
+const items: { href: string; label: string; soon?: boolean; also?: string[] }[] = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/kunder", label: "Kunder", soon: true },
+  { href: "/kunder", label: "Kunder", also: ["/virksomheder"] },
   { href: "/pipeline", label: "Pipeline", soon: true },
   { href: "/opgaver", label: "Opgaver", soon: true },
   { href: "/indbakke", label: "Indbakke", soon: true },
@@ -29,7 +29,9 @@ export function Nav() {
             </span>
           );
         }
-        const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        const active = [item.href, ...(item.also ?? [])].some(
+          (href) => pathname === href || pathname.startsWith(href + "/"),
+        );
         return (
           <Link
             key={item.href}

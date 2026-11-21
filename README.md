@@ -7,7 +7,7 @@ Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma 
 | Fase | Indhold | Status |
 | ---- | ------- | ------ |
 | 1 | Login, firmaer (workspaces), medlemmer og roller | Færdig |
-| 2 | Kunder, kontakter og noter | Planlagt |
+| 2 | Kunder, kontakter og noter | Færdig |
 | 3 | Pipeline og opgaver | Planlagt |
 | 4 | Kontaktformular og leads | Planlagt |
 | 5 | Meta: Lead Ads og annonceforbrug | Planlagt |
@@ -56,6 +56,7 @@ Et firma har altid mindst én ejer.
 | `npm run db:generate` | Lav en ny migrering efter ændringer i `src/db/schema.ts` |
 | `npm run db:migrate` | Kør migreringer mod databasen |
 | `npm run db:studio` | Se databasen i browseren |
+| `npm run test:e2e` | Browsertests (kræver `npm run build` og databasen `crm_test`) |
 
 ## Struktur
 

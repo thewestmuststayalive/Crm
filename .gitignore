@@ -42,3 +42,8 @@ next-env.d.ts
 
 # behold eksempel-filen
 !.env.example
+
+# Playwright
+/e2e/.auth/
+/test-results/
+/playwright-report/
