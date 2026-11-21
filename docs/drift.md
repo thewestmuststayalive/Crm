@@ -1,59 +1,75 @@
 # Sæt CRM'et i drift
 
-Denne guide sætter CRM'et online på **Vercel** (selve appen) og **Neon** (databasen). Begge kører i EU, og opsætningen tager ca. 30 minutter.
+CRM'et kører på **Vercel** (selve programmet) med en **Neon**-database (alle data). Begge har gratis planer, og opsætningen tager ca. 15 minutter.
 
-## 1. Konti du skal oprette
+## Hvilken plan?
 
-| Tjeneste | Formål | Pris (vejledende) |
-| -------- | ------ | ----------------- |
-| [Neon](https://neon.tech) | PostgreSQL-database | Gratis til at starte med (0,5 GB) |
-| [Vercel](https://vercel.com) | Hosting af appen | **Pro-plan påkrævet til erhvervsbrug** (ca. 20 USD/md.). Gratisplanen (Hobby) må kun bruges til ikke-kommerciel brug. |
-| Eget domæne | Fx `crm.ditfirma.dk` | Du har det sikkert allerede |
+| Brug | Vercel-plan | Neon-plan |
+| ---- | ----------- | --------- |
+| Privat / afprøvning | **Hobby** (gratis) | Free (gratis, 0,5 GB) |
+| Firmaerne bruger det til rigtige kunder | **Pro** (ca. 20 USD/md.) – Hobby må ikke bruges kommercielt | Free er nok i starten; opgradér når data vokser |
 
-> **GDPR:** CRM'et indeholder persondata om dine kunder. Vælg EU-regioner (se nedenfor), og accepter databehandleraftalerne (DPA) hos både Vercel og Neon. De ligger i deres indstillinger under "Legal"/"Privacy".
+Skift fra Hobby til Pro sker med et klik under **Settings → Billing** i Vercel. Intet andet skal ændres.
 
-## 2. Database (Neon)
+> **GDPR:** Når der kommer rigtige kundedata i CRM'et, så vælg EU-regioner (se nedenfor), og accepter databehandleraftalerne (DPA) hos Vercel og Neon.
 
-1. Opret et projekt i Neon. Vælg regionen **AWS Europe Central (Frankfurt)**.
-2. Kopiér forbindelsesadressen (connection string) med **pooling slået til**. Den ligner `postgres://bruger:kode@ep-xxx-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require`.
+## 1. Opret projektet på Vercel
 
-## 3. Appen (Vercel)
+1. Gå til [vercel.com](https://vercel.com), og vælg **Sign Up → Continue with GitHub**. Vælg planen **Hobby**.
+2. Klik **Add New… → Project**, og importér repo'et `thewestmuststayalive/crm`. Giv Vercel adgang til repo'et, hvis du bliver spurgt.
+3. Rør ikke ved indstillingerne – klik **Deploy**. Første deploy lykkes, men appen virker først, når databasen er koblet på (næste trin).
 
-1. Log ind på Vercel med GitHub, og importér repo'et `thewestmuststayalive/crm`.
-2. Under **Settings → Functions** vælges regionen **Frankfurt (fra1)**, så appen ligger tæt på databasen.
-3. Under **Settings → Environment Variables** indsættes:
+## 2. Kobl databasen på (Neon, direkte fra Vercel)
 
-| Variabel | Værdi |
-| -------- | ----- |
-| `DATABASE_URL` | Forbindelsesadressen fra Neon |
-| `APP_URL` | Den endelige adresse, fx `https://crm.ditfirma.dk` |
-| `ENCRYPTION_KEY` | Generér med `openssl rand -base64 32` (eller bed udvikleren om en). **Gem den sikkert – mister du den, skal Facebook forbindes igen.** |
-| `CRON_SECRET` | En lang tilfældig tekst (fx endnu en `openssl rand -base64 32`) |
-| `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` | Fra Meta-appen – se [meta-opsaetning.md](./meta-opsaetning.md). Kan tilføjes senere. |
-| `ALLOW_REGISTRATION` | `false` |
+1. Åbn projektet i Vercel, og gå til fanen **Storage**.
+2. Klik **Create Database**, og vælg **Neon** (Serverless Postgres). Vælg planen **Free** og regionen **Frankfurt (eu-central-1)**.
+3. Klik **Connect** og vælg alle miljøer (Production, Preview, Development). Vercel opretter selv `DATABASE_URL` m.m. – du skal ikke kopiere noget.
+4. Gå til fanen **Deployments**, klik på de tre prikker ved den nyeste, og vælg **Redeploy**. Nu oprettes databasetabellerne automatisk.
 
-4. Tryk **Deploy**. Databasetabellerne oprettes automatisk ved hver deploy (`vercel-build` kører migreringerne).
-5. Under **Settings → Domains** tilføjes dit domæne, og du følger Vercels vejledning til DNS.
+> Står der ikke `DATABASE_URL` under **Settings → Environment Variables** efter trin 3, så kopiér forbindelsesadressen fra Neon og opret variablen selv.
+
+## 3. Region (anbefalet)
+
+Under **Settings → Functions → Function Region** vælges **Frankfurt (fra1)**, så programmet ligger tæt på databasen. Deploy igen bagefter.
 
 ## 4. Første login
 
-1. Åbn `https://crm.ditfirma.dk/registrer`, og opret dig selv. Den første bruger bliver ejer, og derefter lukkes for nye oprettelser.
+1. Åbn adressen Vercel har givet projektet (fx `https://crm-xxxx.vercel.app/registrer`), og opret dig selv. Den første bruger bliver ejer, og derefter lukkes for nye oprettelser.
 2. Opret dine øvrige firmaer under **Indstillinger → Firma**.
 3. Tilføj medarbejdere under **Indstillinger → Medlemmer**.
 
-## 5. Automatik
+## 5. Senere: eget domæne og Meta
 
-- **Annoncedata** hentes hver morgen kl. ca. 06–07 dansk tid via Vercel Cron (`vercel.json`). Vercel sender automatisk `CRON_SECRET` med.
-- **Sundhedstjek:** `https://crm.ditfirma.dk/api/health` svarer `{"ok":true}`, når appen kører. Kan bruges til overvågning (fx UptimeRobot).
+Disse trin kan vente, til du har brug for dem.
 
-## 6. Backup
+**Eget domæne:** Under **Settings → Domains** tilføjes fx `crm.ditfirma.dk`; følg Vercels vejledning til DNS. Sæt derefter `APP_URL` (se tabellen) og deploy igen.
 
-Neon tager automatisk backup og kan gendanne til et vilkårligt tidspunkt (7 dage på gratisplanen, længere på betalte planer). Til ekstra sikkerhed kan kontakter eksporteres som CSV fra **Kunder → Eksportér CSV**.
+**Miljøvariabler** (Settings → Environment Variables):
+
+| Variabel | Hvornår | Værdi |
+| -------- | ------- | ----- |
+| `DATABASE_URL` | Altid | Sættes automatisk af Neon-koblingen |
+| `APP_URL` | Når du har eget domæne | Fx `https://crm.ditfirma.dk` |
+| `ENCRYPTION_KEY` | Før Facebook kobles på | 32 tilfældige bytes i base64, fx fra `openssl rand -base64 32`. **Gem den sikkert – mister du den, skal Facebook forbindes igen.** |
+| `CRON_SECRET` | Før Facebook kobles på | En lang tilfældig tekst |
+| `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN` | Før Facebook kobles på | Se [meta-opsaetning.md](./meta-opsaetning.md) |
+
+Efter ændringer i miljøvariabler skal der altid deployes igen (Deployments → Redeploy).
+
+## 6. Automatik
+
+- **Annoncedata** hentes én gang i døgnet om morgenen via Vercel Cron (`vercel.json`). Det virker også på Hobby.
+- **Sundhedstjek:** `/api/health` svarer `{"ok":true}`, når appen kører. Kan bruges til overvågning (fx UptimeRobot).
+
+## 7. Backup
+
+Neon tager automatisk backup og kan gendanne data fra de seneste dage (længere historik på betalte planer). Til ekstra sikkerhed kan kontakter eksporteres som CSV fra **Kunder → Eksportér CSV**.
 
 ## Fejlfinding
 
 | Problem | Løsning |
 | ------- | ------- |
-| "Meta er ikke sat op endnu" | `META_*` og `ENCRYPTION_KEY` mangler i Vercel. Tilføj dem og deploy igen. |
-| Kontaktformularen virker ikke på hjemmesiden | Tjek at `APP_URL` er den rigtige adresse, og at koden er kopieret fra **Indstillinger → Kontaktformular** efter den blev sat. |
-| Login siger "For mange forkerte forsøg" | Vent 15 minutter. Beskyttelsen mod gætteforsøg nulstilles af sig selv. |
+| Siden viser en fejl lige efter første deploy | Databasen er ikke koblet på endnu – følg trin 2 og redeploy. |
+| "Meta er ikke sat op endnu" | `META_*` og `ENCRYPTION_KEY` mangler. Tilføj dem og redeploy. |
+| Kontaktformularen virker ikke på hjemmesiden | Tjek at `APP_URL` er den rigtige adresse, og kopiér koden igen fra **Indstillinger → Kontaktformular**. |
+| Login siger "For mange forkerte forsøg" | Vent 15 minutter. Blokeringen ophører af sig selv. |

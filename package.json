@@ -12,7 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test:e2e": "playwright test",
-    "vercel-build": "drizzle-kit migrate && next build"
+    "vercel-build": "if [ -n \"$DATABASE_URL\" ]; then drizzle-kit migrate; else echo \"DATABASE_URL mangler - kobl databasen på i Vercel og deploy igen\"; fi && next build"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
