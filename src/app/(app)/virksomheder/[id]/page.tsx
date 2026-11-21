@@ -4,13 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteCompany } from "@/app/actions/companies";
 import { ActivityForm } from "@/components/activity-form";
-import { DetailRow, EmptyState, PageHeader, StatusBadge } from "@/components/display";
+import { DetailRow, PageHeader, StatusBadge } from "@/components/display";
 import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
-import { getCompany, getTimeline, getUserName } from "@/lib/crm";
+import { DealsCard } from "@/components/deals-card";
+import { TaskForm } from "@/components/task-form";
+import { TaskList } from "@/components/task-list";
+import { getCompany, getDealsFor, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
 import { hasRole } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Virksomhed" };
@@ -40,10 +43,12 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
       .orderBy(asc(schema.contacts.name)),
     getUserName(company.ownerId),
   ]);
-  const timeline = await getTimeline(workspace.id, {
-    companyId: company.id,
-    contactIds: contacts.map((c) => c.id),
-  });
+  const [timeline, deals, tasks, members] = await Promise.all([
+    getTimeline(workspace.id, { companyId: company.id, contactIds: contacts.map((c) => c.id) }),
+    getDealsFor(workspace.id, { companyId: company.id }),
+    getTasks(workspace.id, { companyId: company.id }),
+    getMemberOptions(workspace.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -124,22 +129,27 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
               Tilføj kontaktperson
             </Link>
           </Card>
+          <DealsCard deals={deals} newHref={`/pipeline/ny?virksomhed=${company.id}`} />
+          <Card title="Opgaver">
+            <TaskForm members={members} defaultAssigneeId={user.id} companyId={company.id} />
+            {tasks.length > 0 && (
+              <div className="mt-3">
+                <TaskList tasks={tasks} showLinks={false} />
+              </div>
+            )}
+          </Card>
         </div>
         <div className="space-y-4 lg:col-span-2">
           <Card title="Aktiviteter" description="Noter på virksomheden og alle dens kontaktpersoner.">
             <ActivityForm companyId={company.id} />
           </Card>
-          {timeline.length === 0 ? (
-            <EmptyState>Ingen aktiviteter endnu.</EmptyState>
-          ) : (
-            <Timeline
-              items={timeline}
-              userId={user.id}
-              role={workspace.role}
-              back={`/virksomheder/${company.id}`}
-              showContact
-            />
-          )}
+          <Timeline
+            items={timeline}
+            userId={user.id}
+            role={workspace.role}
+            back={`/virksomheder/${company.id}`}
+            showContact
+          />
         </div>
       </div>
     </div>

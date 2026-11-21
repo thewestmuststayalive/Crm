@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 const items: { href: string; label: string; soon?: boolean; also?: string[] }[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/kunder", label: "Kunder", also: ["/virksomheder"] },
-  { href: "/pipeline", label: "Pipeline", soon: true },
-  { href: "/opgaver", label: "Opgaver", soon: true },
+  { href: "/pipeline", label: "Pipeline" },
+  { href: "/opgaver", label: "Opgaver" },
   { href: "/indbakke", label: "Indbakke", soon: true },
   { href: "/indstillinger", label: "Indstillinger" },
 ];

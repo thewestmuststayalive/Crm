@@ -8,7 +8,7 @@ Et CRM til kunder, salg og opfølgning på tværs af flere firmaer. Hvert firma 
 | ---- | ------- | ------ |
 | 1 | Login, firmaer (workspaces), medlemmer og roller | Færdig |
 | 2 | Kunder, kontakter og noter | Færdig |
-| 3 | Pipeline og opgaver | Planlagt |
+| 3 | Pipeline og opgaver | Færdig |
 | 4 | Kontaktformular og leads | Planlagt |
 | 5 | Meta: Lead Ads og annonceforbrug | Planlagt |
 | 6 | Indbakke: Messenger og Instagram | Planlagt |

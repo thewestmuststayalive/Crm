@@ -8,7 +8,10 @@ import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
-import { getCompany, getContact, getTimeline, getUserName } from "@/lib/crm";
+import { DealsCard } from "@/components/deals-card";
+import { TaskForm } from "@/components/task-form";
+import { TaskList } from "@/components/task-list";
+import { getCompany, getContact, getDealsFor, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
 import { formatDateTime } from "@/lib/labels";
 import { hasRole } from "@/lib/roles";
 
@@ -20,10 +23,13 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
   const contact = await getContact(workspace.id, id);
   if (!contact) notFound();
 
-  const [company, ownerName, timeline] = await Promise.all([
+  const [company, ownerName, timeline, deals, tasks, members] = await Promise.all([
     contact.companyId ? getCompany(workspace.id, contact.companyId) : null,
     getUserName(contact.ownerId),
     getTimeline(workspace.id, { contactId: contact.id }),
+    getDealsFor(workspace.id, { contactId: contact.id }),
+    getTasks(workspace.id, { contactId: contact.id }),
+    getMemberOptions(workspace.id),
   ]);
 
   return (
@@ -58,7 +64,7 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
+        <div className="space-y-6 lg:col-span-1">
           <Card title="Oplysninger">
             <dl className="divide-y divide-slate-100">
               <DetailRow label="E-mail">
@@ -82,6 +88,15 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
               <DetailRow label="Oprettet">{formatDateTime(contact.createdAt)}</DetailRow>
               <DetailRow label="Opdateret">{formatDateTime(contact.updatedAt)}</DetailRow>
             </dl>
+          </Card>
+          <DealsCard deals={deals} newHref={`/pipeline/ny?kontakt=${contact.id}`} />
+          <Card title="Opgaver">
+            <TaskForm members={members} defaultAssigneeId={user.id} contactId={contact.id} />
+            {tasks.length > 0 && (
+              <div className="mt-3">
+                <TaskList tasks={tasks} showLinks={false} />
+              </div>
+            )}
           </Card>
         </div>
         <div className="space-y-4 lg:col-span-2">

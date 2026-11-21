@@ -25,7 +25,8 @@ export function Timeline({
   return (
     <ol className="space-y-3">
       {items.map((item) => {
-        const canDelete = item.authorId === userId || hasRole(role, "ADMIN");
+        const canDelete = hasRole(role, "ADMIN") || (item.authorId === userId && item.type !== "SYSTEM");
+        const showDeal = item.dealId && back !== `/pipeline/${item.dealId}`;
         return (
           <li key={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
@@ -39,6 +40,14 @@ export function Timeline({
                     <span>·</span>
                     <Link href={`/kunder/${item.contactId}`} className="underline">
                       {item.contactName}
+                    </Link>
+                  </>
+                )}
+                {showDeal && (
+                  <>
+                    <span>·</span>
+                    <Link href={`/pipeline/${item.dealId}`} className="underline">
+                      Deal: {item.dealTitle}
                     </Link>
                   </>
                 )}

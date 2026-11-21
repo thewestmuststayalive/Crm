@@ -4,7 +4,6 @@ import { requireWorkspace } from "@/lib/auth";
 export const metadata: Metadata = { title: "Dashboard" };
 
 const upcoming = [
-  { title: "Pipeline og opgaver", text: "Deals i faser og opfølgninger med deadline.", phase: 3 },
   { title: "Leads fra kontaktformular", text: "Henvendelser fra dine hjemmesider lander direkte her.", phase: 4 },
   { title: "Meta Ads", text: "Leads fra Lead Ads og annonceforbrug pr. kampagne.", phase: 5 },
   { title: "Indbakke", text: "Beskeder fra Messenger og Instagram samlet ét sted.", phase: 6 },

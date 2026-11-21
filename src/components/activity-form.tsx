@@ -2,15 +2,24 @@
 
 import { useActionState } from "react";
 import { addActivity } from "@/app/actions/activities";
-import { ACTIVITY_LABELS } from "@/lib/labels";
+import { ACTIVITY_LABELS, USER_ACTIVITY_TYPES } from "@/lib/labels";
 import { FormMessage, Select, SubmitButton, Textarea } from "./ui";
 
-export function ActivityForm({ contactId, companyId }: { contactId?: string; companyId?: string }) {
+export function ActivityForm({
+  contactId,
+  companyId,
+  dealId,
+}: {
+  contactId?: string;
+  companyId?: string;
+  dealId?: string;
+}) {
   const [state, action] = useActionState(addActivity, {});
   return (
     <form action={action} className="space-y-3">
       {contactId && <input type="hidden" name="contactId" value={contactId} />}
       {companyId && <input type="hidden" name="companyId" value={companyId} />}
+      {dealId && <input type="hidden" name="dealId" value={dealId} />}
       <label htmlFor="activity-body" className="sr-only">
         Ny aktivitet
       </label>
@@ -20,9 +29,9 @@ export function ActivityForm({ contactId, companyId }: { contactId?: string; com
           Type
         </label>
         <Select id="activity-type" name="type" defaultValue="NOTE">
-          {Object.entries(ACTIVITY_LABELS).map(([value, label]) => (
+          {USER_ACTIVITY_TYPES.map((value) => (
             <option key={value} value={value}>
-              {label}
+              {ACTIVITY_LABELS[value]}
             </option>
           ))}
         </Select>
