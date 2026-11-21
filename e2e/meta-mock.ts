@@ -105,6 +105,17 @@ export function startMetaMock(): Promise<Server> {
         return send(200, { first_name: "Mads", last_name: "Messenger" });
       case "GET /IGSID_NEW":
         return send(200, { name: "Ida Insta", username: "ida" });
+      case "GET /api": {
+        // Falsk CVR-register (cvrapi.dk-format)
+        const q = query.vat ?? query.name ?? "";
+        if (q === "12345678" || q.toLowerCase().includes("testfirma")) {
+          return send(200, {
+            vat: 12345678, name: "TESTFIRMA ApS", address: "Testvej 1", zipcode: "8000", city: "Aarhus C",
+            phone: "70707070", email: "info@testfirma.dk", industrydesc: "Konsulentbistand", protected: true,
+          });
+        }
+        return send(404, { error: "NOT_FOUND" });
+      }
       case "POST /emails":
         return send(200, { id: `email_${log.length}` });
       case "POST /PAGE1/messages":

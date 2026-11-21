@@ -47,6 +47,7 @@ export default defineConfig({
       RESEND_API_KEY: "test-resend",
       RESEND_API_URL: "http://localhost:3999",
       EMAIL_FROM: "Kundespor <noreply@example.com>",
+      CVR_API_URL: "http://localhost:3999/api",
     },
   },
 });

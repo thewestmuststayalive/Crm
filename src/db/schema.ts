@@ -80,6 +80,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "PHONE",
   "REFERRAL",
   "OTHER",
+  "IMPORT",
 ]);
 export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
 

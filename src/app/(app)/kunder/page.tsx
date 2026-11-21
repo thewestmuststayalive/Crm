@@ -75,7 +75,10 @@ export default async function ContactsPage({ searchParams }: PageProps<"/kunder"
     <div className="mx-auto max-w-6xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Kunder</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/kunder/import" className={buttonClass("secondary")}>
+            Importér
+          </Link>
           <a href={`/kunder/eksport?${exportParams}`} className={buttonClass("secondary")}>
             Eksportér CSV
           </a>
