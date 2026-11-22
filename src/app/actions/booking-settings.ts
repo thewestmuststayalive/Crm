@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import type { OpeningDay } from "@/db/schema";
+import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { getBookingSettings, getService } from "@/lib/booking";
 import { requireBookingModule } from "@/lib/modules";
@@ -23,7 +24,7 @@ function done(message: string, kind: "ok" | "fejl" = "ok"): never {
 
 /** Slår moduler til og fra for firmaet. */
 export async function saveModules(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const booking = formData.get("booking") === "on";
   const agency = formData.get("agency") === "on";
   await db
@@ -31,6 +32,12 @@ export async function saveModules(formData: FormData) {
     .set({ bookingEnabled: booking, agencyEnabled: agency })
     .where(eq(schema.workspaces.id, workspace.id));
   if (booking) await getBookingSettings(workspace.id);
+  await audit(
+    workspace.id,
+    user.id,
+    "Moduler ændret",
+    [booking && "Booking og biler", agency && "Tid og projekter"].filter(Boolean).join(", ") || "Ingen",
+  );
   revalidatePath("/", "layout");
   redirect(`/indstillinger?besked=${encodeURIComponent("Modulerne er gemt.")}`);
 }
@@ -86,7 +93,8 @@ export async function saveBookingRules(_prev: ActionState, formData: FormData): 
 
 /** Laver et nyt bookinglink. Det gamle holder op med at virke. */
 export async function newBookingLink() {
-  const { workspace } = await requireBookingModule("ADMIN");
+  const { user, workspace } = await requireBookingModule("ADMIN");
+  await audit(workspace.id, user.id, "Nyt bookinglink lavet");
   await getBookingSettings(workspace.id);
   await db
     .update(schema.bookingSettings)

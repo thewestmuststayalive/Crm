@@ -1,6 +1,7 @@
 import { requireWorkspace } from "@/lib/auth";
 import { getContact, logEvent } from "@/lib/crm";
 import { exportPersonData } from "@/lib/gdpr";
+import { audit } from "@/lib/audit";
 
 /** Henter alle data om en kontakt som JSON (indsigtsret). */
 export async function GET(_request: Request, ctx: RouteContext<"/kunder/[id]/persondata">) {
@@ -14,6 +15,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/kunder/[id]/per
     contactId: contact.id,
     companyId: contact.companyId,
   });
+  await audit(workspace.id, user.id, "Persondata eksporteret", contact.name);
   const date = new Date().toISOString().slice(0, 10);
   return new Response(JSON.stringify(data, null, 2), {
     headers: {

@@ -134,6 +134,13 @@
       "when": 1795338247521,
       "tag": "0018_branding",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795339621417,
+      "tag": "0019_audit_log",
+      "breakpoints": true
     }
   ]
 }

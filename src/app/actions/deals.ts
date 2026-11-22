@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { leadSourceEnum } from "@/db/schema";
 import { requireRole, requireWorkspace } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { getCompany, getContact, getDeal, isMemberOf, logEvent } from "@/lib/crm";
 import { onStageChange, parseKroner } from "@/lib/deals";
 import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
@@ -31,7 +32,17 @@ const dealSchema = z.object({
   lostReason: optionalText(500),
 });
 
-const FIELDS = ["title", "value", "stageId", "source", "contactId", "companyId", "ownerId", "expectedCloseDate", "lostReason"];
+const FIELDS = [
+  "title",
+  "value",
+  "stageId",
+  "source",
+  "contactId",
+  "companyId",
+  "ownerId",
+  "expectedCloseDate",
+  "lostReason",
+];
 
 async function parseDeal(workspaceId: string, formData: FormData) {
   const parsed = dealSchema.safeParse(Object.fromEntries(formData));
@@ -117,10 +128,14 @@ export async function moveDeal(id: string, stageId: string) {
 }
 
 export async function deleteDeal(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) return;
-  await db.delete(schema.deals).where(and(eq(schema.deals.workspaceId, workspace.id), eq(schema.deals.id, id)));
+  const [deleted] = await db
+    .delete(schema.deals)
+    .where(and(eq(schema.deals.workspaceId, workspace.id), eq(schema.deals.id, id)))
+    .returning({ title: schema.deals.title });
+  if (deleted) await audit(workspace.id, user.id, "Deal slettet", deleted.title);
   revalidatePath("/pipeline");
   redirect("/pipeline");
 }

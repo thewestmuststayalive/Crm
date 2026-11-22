@@ -935,3 +935,19 @@ export const projectTemplates = pgTable(
   },
   (t) => [index("project_templates_workspace_idx").on(t.workspaceId)],
 );
+
+/** Log over vigtige handlinger i firmaet (sletninger, eksporter, indstillinger, adgang). */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    details: text("details"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_workspace_idx").on(t.workspaceId, t.createdAt)],
+);

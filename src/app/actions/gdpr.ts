@@ -6,18 +6,20 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireRole, requireWorkspace } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { getContact, logEvent } from "@/lib/crm";
 import { deletePersonData, RETENTION_OPTIONS } from "@/lib/gdpr";
 import { isUuid } from "@/lib/validation";
 
 /** Sletter en person og alle data om personen (retten til sletning). Kun administratorer. */
 export async function deletePersonCompletely(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) return;
   const contact = await getContact(workspace.id, id);
   if (!contact) return;
   await deletePersonData(workspace.id, contact.id);
+  await audit(workspace.id, user.id, "Alle persondata slettet (GDPR)", contact.name);
   revalidatePath("/", "layout");
   redirect(`/kunder?besked=${encodeURIComponent("Alle data om personen er slettet.")}`);
 }
@@ -51,7 +53,7 @@ export async function setEmailOptOut(formData: FormData) {
 
 /** Automatisk sletning af gamle leads. 0 = slået fra. */
 export async function saveLeadRetention(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const months = z.coerce
     .number()
     .refine((n) => n === 0 || (RETENTION_OPTIONS as readonly number[]).includes(n))
@@ -61,6 +63,12 @@ export async function saveLeadRetention(formData: FormData) {
     .update(schema.workspaces)
     .set({ leadRetentionMonths: months.data || null })
     .where(eq(schema.workspaces.id, workspace.id));
+  await audit(
+    workspace.id,
+    user.id,
+    "Automatisk sletning af leads",
+    months.data ? `${months.data} måneder` : "Slået fra",
+  );
   revalidatePath("/indstillinger/persondata");
   redirect(
     `/indstillinger/persondata?besked=${encodeURIComponent(months.data ? "Automatisk sletning er slået til." : "Automatisk sletning er slået fra.")}`,

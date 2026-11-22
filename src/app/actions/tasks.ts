@@ -50,7 +50,15 @@ export async function createTask(_prev: ActionState, formData: FormData): Promis
     createdById: user.id,
   });
   if (assigneeId !== user.id) {
-    const href = data.projectId ? `/projekter/${data.projectId}` : data.dealId ? `/pipeline/${data.dealId}` : data.contactId ? `/kunder/${data.contactId}` : data.companyId ? `/virksomheder/${data.companyId}` : "/opgaver";
+    const href = data.projectId
+      ? `/projekter/${data.projectId}`
+      : data.dealId
+        ? `/pipeline/${data.dealId}`
+        : data.contactId
+          ? `/kunder/${data.contactId}`
+          : data.companyId
+            ? `/virksomheder/${data.companyId}`
+            : "/opgaver";
     await notify({
       workspaceId: workspace.id,
       to: { userIds: [assigneeId] },
@@ -91,8 +99,7 @@ export async function deleteTask(formData: FormData) {
   const { user, workspace } = await requireWorkspace();
   const task = await getTask(workspace.id, formData.get("id"));
   if (!task) return;
-  const allowed =
-    hasRole(workspace.role, "ADMIN") || task.createdById === user.id || task.assigneeId === user.id;
+  const allowed = hasRole(workspace.role, "ADMIN") || task.createdById === user.id || task.assigneeId === user.id;
   if (!allowed) return;
   await db.delete(schema.tasks).where(eq(schema.tasks.id, task.id));
   revalidatePath("/", "layout");

@@ -5,12 +5,13 @@ import { contactStatusEnum, type ContactStatus } from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth";
 import { formatCustomValue, getCustomFields } from "@/lib/custom-fields";
 import { csvResponse, toCsv } from "@/lib/csv";
+import { audit } from "@/lib/audit";
 import { formatDateTime, SOURCE_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { likePattern } from "@/lib/validation";
 
 /** Eksporterer kontakterne (med samme søgning/filter som listen) som CSV. */
 export async function GET(request: NextRequest) {
-  const { workspace } = await requireWorkspace();
+  const { user, workspace } = await requireWorkspace();
   const q = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100) ?? "";
   const statusParam = request.nextUrl.searchParams.get("status");
   const status = contactStatusEnum.enumValues.includes(statusParam as ContactStatus)
@@ -53,7 +54,18 @@ export async function GET(request: NextRequest) {
 
   const customFields = await getCustomFields(workspace.id, "CONTACT");
   const csv = toCsv(
-    ["Navn", "Stilling", "E-mail", "Telefon", "Status", "Kilde", "Virksomhed", "Ansvarlig", "Oprettet", ...customFields.map((f) => f.label)],
+    [
+      "Navn",
+      "Stilling",
+      "E-mail",
+      "Telefon",
+      "Status",
+      "Kilde",
+      "Virksomhed",
+      "Ansvarlig",
+      "Oprettet",
+      ...customFields.map((f) => f.label),
+    ],
     rows.map((r) => [
       r.name,
       r.title,
@@ -67,6 +79,7 @@ export async function GET(request: NextRequest) {
       ...customFields.map((f) => formatCustomValue(f, r.custom[f.id])),
     ]),
   );
+  await audit(workspace.id, user.id, "Kontakter eksporteret (CSV)", `${rows.length} kontakter`);
   const date = new Date().toISOString().slice(0, 10);
   return csvResponse(`kontakter-${date}.csv`, csv);
 }

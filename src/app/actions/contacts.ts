@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { contactStatusEnum, leadSourceEnum, type ContactStatus } from "@/db/schema";
 import { respondToContact } from "@/lib/awaiting";
+import { audit } from "@/lib/audit";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, isMemberOf } from "@/lib/crm";
 import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
@@ -98,12 +99,14 @@ export async function updateContact(id: string, _prev: ActionState, formData: Fo
 }
 
 export async function deleteContact(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) return;
-  await db
+  const [deleted] = await db
     .delete(schema.contacts)
-    .where(and(eq(schema.contacts.workspaceId, workspace.id), eq(schema.contacts.id, id)));
+    .where(and(eq(schema.contacts.workspaceId, workspace.id), eq(schema.contacts.id, id)))
+    .returning({ name: schema.contacts.name });
+  if (deleted) await audit(workspace.id, user.id, "Kontakt slettet", deleted.name);
   revalidatePath("/kunder");
   redirect("/kunder");
 }
@@ -135,6 +138,7 @@ export async function bulkContacts(formData: FormData) {
       .set({ status, updatedAt: new Date() })
       .where(scope)
       .returning({ id: schema.contacts.id });
+    await audit(workspace.id, user.id, "Masse-handling: status", `${n(rows.length)} → ${STATUS_LABELS[status]}`);
     done(`${n(rows.length)} har fået status ${STATUS_LABELS[status]}.`);
   }
   if (op.startsWith("owner:")) {
@@ -145,11 +149,13 @@ export async function bulkContacts(formData: FormData) {
       .set({ ownerId: ownerId === "ingen" ? null : ownerId, updatedAt: new Date() })
       .where(scope)
       .returning({ id: schema.contacts.id });
+    await audit(workspace.id, user.id, "Masse-handling: ansvarlig", n(rows.length));
     done(`${n(rows.length)} har fået ny ansvarlig.`);
   }
   if (op === "delete") {
     if (!hasRole(workspace.role, "ADMIN")) done("Kun administratorer kan slette kontakter.");
     const rows = await db.delete(schema.contacts).where(scope).returning({ id: schema.contacts.id });
+    await audit(workspace.id, user.id, "Masse-handling: kontakter slettet", n(rows.length));
     done(`${n(rows.length)} er slettet.`);
   }
   done("Vælg hvad der skal ske med de valgte kontakter.");
