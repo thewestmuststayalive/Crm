@@ -21,6 +21,7 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
     myTasks,
     recentLeads,
     sources,
+    response,
   ] = await Promise.all([
     db
       .select({ value: count() })
@@ -92,6 +93,7 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
       .where(and(inArray(schema.contacts.workspaceId, workspaceIds), gte(schema.contacts.createdAt, sql`now() - interval '30 days'`)))
       .groupBy(schema.contacts.source)
       .orderBy(desc(count())),
+    getResponseStats(workspaceIds),
   ]);
 
   return {
@@ -100,7 +102,7 @@ export async function getDashboard(workspaceIds: string[], userId: string) {
     wonMonth: { value: Number(wonMonth.value), count: wonMonth.n },
     overdueTasks: overdue.value,
     waiting: waiting.value,
-    response: await getResponseStats(workspaceIds),
+    response,
     myTasks,
     recentLeads,
     sources,

@@ -13,6 +13,8 @@ Skift fra Hobby til Pro sker med et klik under **Settings → Billing** i Vercel
 
 > **GDPR:** Når der kommer rigtige kundedata i CRM'et, så vælg EU-regioner (se nedenfor), og accepter databehandleraftalerne (DPA) hos Vercel og Neon.
 
+> **Hastighed:** Serveren kører i Frankfurt (`fra1`, sat i `vercel.json`), samme sted som databasen. Ligger de to forskellige steder (fx server i USA og database i Frankfurt), bliver hver side mærkbart langsommere. Flyttes databasen, skal `regions` i `vercel.json` følge med.
+
 ## 1. Opret projektet på Vercel
 
 1. Gå til [vercel.com](https://vercel.com), og vælg **Sign Up → Continue with GitHub**. Vælg planen **Hobby**.
