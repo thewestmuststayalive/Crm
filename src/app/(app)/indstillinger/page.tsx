@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { Card } from "@/components/ui";
+import { saveModules } from "@/app/actions/booking-settings";
+import { Button, Card } from "@/components/ui";
+import { getModules } from "@/lib/modules";
+import { getBranding } from "@/lib/branding";
+import { BrandingForm } from "./branding-form";
 import { CreateWorkspaceForm } from "@/components/create-workspace-form";
 import { requireWorkspace } from "@/lib/auth";
 import { getResponseTargetSeconds } from "@/lib/waiting";
@@ -11,8 +15,11 @@ import { RenameWorkspaceForm } from "./rename-form";
 
 export const metadata: Metadata = { title: "Firma" };
 
-export default async function WorkspaceSettingsPage() {
+export default async function WorkspaceSettingsPage({ searchParams }: PageProps<"/indstillinger">) {
   const { workspace } = await requireWorkspace();
+  const sp = await searchParams;
+  const modules = await getModules(workspace.id);
+  const brand = await getBranding(workspace.id);
   const canEdit = hasRole(workspace.role, "ADMIN");
   const targetMinutes = (await getResponseTargetSeconds(workspace.id)) / 60;
   const [seller] = await db
@@ -30,11 +37,52 @@ export default async function WorkspaceSettingsPage() {
 
   return (
     <div className="space-y-6">
+      {typeof sp.besked === "string" && (
+        <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {sp.besked}
+        </p>
+      )}
       <Card title="Firmaoplysninger" description="Navnet vises i firmavælgeren og på tværs af Kundespor.">
         {canEdit ? (
           <RenameWorkspaceForm name={workspace.name} responseTargetMinutes={targetMinutes} />
         ) : (
           <p className="text-sm text-slate-700">{workspace.name}</p>
+        )}
+      </Card>
+      {canEdit && (
+        <Card
+          title="Udseende på kundesider"
+          description="Logo og farve på bookingsiden, tilbud, rapporter og i e-mails til kunderne."
+        >
+          <BrandingForm color={brand.color} logoUrl={brand.logoUrl} name={workspace.name} />
+        </Card>
+      )}
+      <Card title="Moduler" description="Slå de dele til, som firmaet bruger. De vises kun i dette firma.">
+        {canEdit ? (
+          <form action={saveModules} className="space-y-3">
+            <label className="flex items-start gap-2 text-sm text-slate-800">
+              <input type="checkbox" name="booking" defaultChecked={modules.booking} className="mt-0.5 h-4 w-4" />
+              <span>
+                <strong>Booking og biler</strong> – kalender, onlinebooking med link og QR-kode, biler på kundekortet
+                (fx bilpleje og værksteder)
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-slate-800">
+              <input type="checkbox" name="agency" defaultChecked={modules.agency} className="mt-0.5 h-4 w-4" />
+              <span>
+                <strong>Tid og projekter</strong> – projekter med skabeloner, tidsregistrering med stopur, retainers med
+                timebudget og advarsel ved 80 % og 100 % (fx bureauer)
+              </span>
+            </label>
+            <Button type="submit" variant="secondary">
+              Gem moduler
+            </Button>
+          </form>
+        ) : (
+          <p className="text-sm text-slate-700">
+            {[modules.booking && "Booking og biler", modules.agency && "Tid og projekter"].filter(Boolean).join(", ") ||
+              "Ingen moduler slået til"}
+          </p>
         )}
       </Card>
       {canEdit && (

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { BrandHeader } from "@/components/brand-header";
+import { brandStyle, getBranding } from "@/lib/branding";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand";
 import { getCurrentUser } from "@/lib/auth";
@@ -47,8 +49,9 @@ export default async function PublicQuotePage({ params }: PageProps<"/tilbud/[to
   ].filter(Boolean) as string[];
   const customer = draft.companyName ?? draft.contactName;
 
+  const brand = await getBranding(quote.workspaceId);
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white print:p-0">
+    <main style={brandStyle(brand.color)} className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white print:p-0">
       <div className="mx-auto max-w-3xl space-y-4">
         {quote.status === "DRAFT" && (
           <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900 print:hidden">
@@ -64,6 +67,7 @@ export default async function PublicQuotePage({ params }: PageProps<"/tilbud/[to
         <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10 print:border-0 print:shadow-none">
           <header className="flex flex-col gap-6 border-b border-slate-200 pb-6 sm:flex-row sm:justify-between">
             <div>
+              <BrandHeader brand={brand} className="mb-3" />
               <p className="text-lg font-semibold text-slate-900">{seller.name}</p>
               <ul className="mt-1 space-y-0.5 text-sm text-slate-600">
                 {sellerLines.map((l) => (

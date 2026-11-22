@@ -7,6 +7,8 @@ import { db, schema } from "@/db";
 import { roleEnum, type Role } from "@/db/schema";
 import { randomBytes } from "node:crypto";
 import { requireRole } from "@/lib/auth";
+import { audit } from "@/lib/audit";
+import { ROLE_LABELS } from "@/lib/roles";
 import { brandedEmail, isEmailConfigured, sendEmail } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
 import { createAuthToken } from "@/lib/tokens";
@@ -42,8 +44,9 @@ async function ownerCount(workspaceId: string) {
 
 async function getMember(workspaceId: string, userId: string) {
   const [m] = await db
-    .select({ role: schema.memberships.role })
+    .select({ role: schema.memberships.role, name: schema.users.name })
     .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.userId, userId)))
     .limit(1);
   return m;
@@ -58,7 +61,10 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
   if (!canAssign(workspace.role, role)) return { error: "Kun en ejer kan tildele ejer-rollen", values };
   const canEmail = isEmailConfigured();
   if (!password && !canEmail) {
-    return { error: "Angiv en midlertidig adgangskode (Kundespor kan ikke sende invitationer på e-mail endnu)", values };
+    return {
+      error: "Angiv en midlertidig adgangskode (Kundespor kan ikke sende invitationer på e-mail endnu)",
+      values,
+    };
   }
   const appUrl = await getAppUrl();
 
@@ -80,7 +86,9 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
         subject: `Du har fået adgang til ${workspace.name} i Kundespor`,
         ...brandedEmail({
           heading: `Du har fået adgang til ${workspace.name}`,
-          paragraphs: [`${actor.name} har givet dig adgang til ${workspace.name}. Du logger ind som du plejer og skifter firma i menuen.`],
+          paragraphs: [
+            `${actor.name} har givet dig adgang til ${workspace.name}. Du logger ind som du plejer og skifter firma i menuen.`,
+          ],
           button: { label: "Åbn Kundespor", url: `${appUrl}/login` },
         }),
       });
@@ -116,7 +124,8 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     });
     revalidatePath("/indstillinger/medlemmer");
     if (sent) return { success: `Invitation sendt til ${email}.` };
-    if (!password) return { error: `${name} er oprettet, men invitationen kunne ikke sendes. Prøv "Send invitation igen".` };
+    if (!password)
+      return { error: `${name} er oprettet, men invitationen kunne ikke sendes. Prøv "Send invitation igen".` };
   }
   revalidatePath("/indstillinger/medlemmer");
   return { success: `${name} er oprettet. Giv personen e-mail og midlertidig adgangskode.` };
@@ -143,7 +152,7 @@ export async function resendInvite(formData: FormData) {
         `${actor.name} har inviteret dig til ${workspace.name} i Kundespor.`,
         "Klik på knappen for at vælge din adgangskode. Invitationen virker i 7 dage.",
       ],
-      button: { label: "Kom i gang", url: `${(await getAppUrl())}/nulstil/${token}` },
+      button: { label: "Kom i gang", url: `${await getAppUrl()}/nulstil/${token}` },
     }),
   });
   revalidatePath("/indstillinger/medlemmer");
@@ -169,6 +178,12 @@ export async function changeRole(formData: FormData) {
     .update(schema.memberships)
     .set({ role })
     .where(and(eq(schema.memberships.workspaceId, workspace.id), eq(schema.memberships.userId, userId)));
+  await audit(
+    workspace.id,
+    user.id,
+    "Rolle ændret",
+    `${target.name}: ${ROLE_LABELS[target.role]} → ${ROLE_LABELS[role]}`,
+  );
   revalidatePath("/indstillinger/medlemmer");
 }
 
@@ -185,5 +200,6 @@ export async function removeMember(formData: FormData) {
   await db
     .delete(schema.memberships)
     .where(and(eq(schema.memberships.workspaceId, workspace.id), eq(schema.memberships.userId, userId)));
+  await audit(workspace.id, user.id, "Medlem fjernet", target.name);
   revalidatePath("/indstillinger/medlemmer");
 }

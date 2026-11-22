@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -24,6 +25,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   /** Modtag e-mail ved nye leads tildelt brugeren. */
   emailNotifications: boolean("email_notifications").notNull().default(true),
+  /** Notifikationstyper brugeren ikke vil have på e-mail (de vises stadig i appen). */
+  mutedEmailTypes: jsonb("muted_email_types").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -61,6 +64,18 @@ export const workspaces = pgTable("workspaces", {
   reviewMessage: text("review_message"),
   /** Slet leads uden aktivitet efter så mange måneder (GDPR-dataminimering). Null = slået fra. */
   leadRetentionMonths: integer("lead_retention_months"),
+  // Moduler, der kan slås til pr. firma.
+  /** Booking, kalender og biler (fx bilpleje). */
+  bookingEnabled: boolean("booking_enabled").notNull().default(false),
+  // Udseende på kundesider og i e-mails.
+  /** Logo som data-URL (PNG/JPEG/WebP, højst 300 KB). */
+  logoData: text("logo_data"),
+  /** Firmafarve som hex, fx "#1b6257". */
+  brandColor: text("brand_color"),
+  /** Egne tekster i e-mails til kunder, nøglet på e-mailtype. */
+  emailTexts: jsonb("email_texts").$type<Record<string, string>>().notNull().default({}),
+  /** Tidsregistrering, retainers og projekter (fx bureau). */
+  agencyEnabled: boolean("agency_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -99,6 +114,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "REFERRAL",
   "OTHER",
   "IMPORT",
+  "BOOKING",
 ]);
 export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
 
@@ -128,6 +144,12 @@ export const companies = pgTable(
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     /** Værdier for firmaets egne felter, nøglet på felt-id. */
     custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
+    /** Hemmeligt id i linket til kundens månedsrapport. */
+    reportToken: text("report_token").unique(),
+    /** Send månedsrapporten automatisk den 1. til denne e-mail. */
+    reportEnabled: boolean("report_enabled").notNull().default(false),
+    reportEmail: text("report_email"),
+    reportLastSentMonth: text("report_last_sent_month"),
     ...timestamps,
   },
   (t) => [index("companies_workspace_name_idx").on(t.workspaceId, t.name)],
@@ -250,6 +272,7 @@ export const tasks = pgTable(
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -371,6 +394,8 @@ export const metaAdAccounts = pgTable(
     adAccountId: text("ad_account_id").notNull().unique(),
     name: text("name").notNull(),
     currency: text("currency").notNull().default("DKK"),
+    /** Kunden (virksomheden) annoncekontoen hører til – bruges i månedsrapporten. */
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -534,6 +559,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "QUOTE_VIEWED",
   "QUOTE_ACCEPTED",
   "QUOTE_DECLINED",
+  "NEW_BOOKING",
+  "BOOKING_CANCELLED",
+  "RETAINER_ALERT",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -693,4 +721,249 @@ export const reviewRequests = pgTable(
     index("review_requests_workspace_idx").on(t.workspaceId, t.createdAt),
     index("review_requests_contact_idx").on(t.contactId),
   ],
+);
+
+/** Åbningstid for én ugedag (mandag = indeks 0). Tider som "08:00". */
+export type OpeningDay = { open: boolean; from: string; to: string };
+
+/** Regler for onlinebooking pr. firma. */
+export const bookingSettings = pgTable("booking_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Den offentlige del af bookinglinket (/book/<key>). */
+  key: text("key").notNull().unique(),
+  openingHours: jsonb("opening_hours").$type<OpeningDay[]>().notNull(),
+  /** Hvor tæt de ledige tider ligger, i minutter. */
+  slotMinutes: integer("slot_minutes").notNull().default(30),
+  /** Antal bookinger der kan foregå samtidig (fx antal pladser i hallen). */
+  capacity: integer("capacity").notNull().default(1),
+  /** Hvor mange timer i forvejen kunden senest kan booke. */
+  minNoticeHours: integer("min_notice_hours").notNull().default(12),
+  /** Hvor mange dage frem kunden kan booke. */
+  maxDaysAhead: integer("max_days_ahead").notNull().default(30),
+  /** Hvor mange timer før kunden selv kan aflyse via linket. */
+  cancelHours: integer("cancel_hours").notNull().default(24),
+  /** Tekst øverst på bookingsiden. */
+  intro: text("intro"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** En ydelse, der kan bookes (fx "Indvendig rens"). Pris i øre inkl. moms. */
+export const services = pgTable(
+  "services",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    durationMinutes: integer("duration_minutes").notNull(),
+    priceOre: integer("price_ore").notNull().default(0),
+    /** Påmind kunden om en ny behandling efter så mange måneder. Null = ingen påmindelse. */
+    reminderMonths: integer("reminder_months"),
+    bookableOnline: boolean("bookable_online").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("services_workspace_idx").on(t.workspaceId, t.position)],
+);
+
+/** En bil, der tilhører en kontakt. Nummerpladen gemmes uden mellemrum med store bogstaver. */
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    plate: text("plate"),
+    make: text("make"),
+    model: text("model"),
+    year: integer("year"),
+    color: text("color"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [
+    index("vehicles_workspace_plate_idx").on(t.workspaceId, t.plate),
+    index("vehicles_contact_idx").on(t.contactId),
+  ],
+);
+
+export const bookingStatusEnum = pgEnum("booking_status", ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"]);
+export type BookingStatus = (typeof bookingStatusEnum.enumValues)[number];
+export const bookingSourceEnum = pgEnum("booking_source", ["ONLINE", "MANUAL"]);
+
+/** En booket tid. Ydelsens navn og pris kopieres, så ændringer i prislisten ikke ændrer historikken. */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    vehicleId: uuid("vehicle_id").references(() => vehicles.id, { onDelete: "set null" }),
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    serviceName: text("service_name").notNull(),
+    priceOre: integer("price_ore").notNull().default(0),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    status: bookingStatusEnum("status").notNull().default("CONFIRMED"),
+    source: bookingSourceEnum("source").notNull().default("MANUAL"),
+    /** Kundens besked ved onlinebooking. */
+    customerNote: text("customer_note"),
+    internalNote: text("internal_note"),
+    assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    /** Hemmeligt id i kundens aflysningslink. */
+    token: text("token").notNull().unique(),
+    ipHash: text("ip_hash"),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    /** Sat når kunden er mindet om en ny behandling (ydelsens påmindelsesinterval). */
+    serviceReminderSentAt: timestamp("service_reminder_sent_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("bookings_workspace_start_idx").on(t.workspaceId, t.startsAt),
+    index("bookings_contact_idx").on(t.contactId),
+    index("bookings_status_start_idx").on(t.status, t.startsAt),
+  ],
+);
+
+/** Registreret tid. Et kørende stopur har endedAt = null. */
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Kunden tiden er brugt på. Null = intern tid. */
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    description: text("description"),
+    /** Dansk dato, tiden hører til (bruges til uger og måneder). */
+    date: date("date").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    minutes: integer("minutes").notNull().default(0),
+    billable: boolean("billable").notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [
+    index("time_entries_workspace_date_idx").on(t.workspaceId, t.date),
+    index("time_entries_company_date_idx").on(t.companyId, t.date),
+    index("time_entries_user_idx").on(t.userId, t.date),
+  ],
+);
+
+/** Fast månedlig aftale med en kunde: timebudget og/eller pris pr. måned. */
+export const retainers = pgTable(
+  "retainers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Timebudget pr. måned i minutter. */
+    monthlyMinutes: integer("monthly_minutes").notNull(),
+    /** Pris pr. måned i øre (valgfri). */
+    monthlyPriceOre: integer("monthly_price_ore"),
+    /** Timepris for timer ud over budgettet, i øre (valgfri). */
+    hourlyRateOre: integer("hourly_rate_ore"),
+    active: boolean("active").notNull().default(true),
+    /** Seneste måned ("YYYY-MM"), der er advaret om ved 80 % og 100 %. */
+    alerted80: text("alerted_80"),
+    alerted100: text("alerted_100"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("retainers_company_idx").on(t.workspaceId, t.companyId)],
+);
+
+export const projectStatusEnum = pgEnum("project_status", ["ACTIVE", "DONE"]);
+
+/** Et projekt for en kunde (fx "Ny hjemmeside"). Opgaverne ligger i tasks med projectId. */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: projectStatusEnum("status").notNull().default("ACTIVE"),
+    startDate: date("start_date"),
+    dueDate: date("due_date"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("projects_workspace_idx").on(t.workspaceId, t.status)],
+);
+
+export type TemplateItem = { title: string; offsetDays: number };
+
+/** Skabelon med faste opgaver, fx "Onboarding af ny kunde". */
+export const projectTemplates = pgTable(
+  "project_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    items: jsonb("items").$type<TemplateItem[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("project_templates_workspace_idx").on(t.workspaceId)],
+);
+
+/** Log over vigtige handlinger i firmaet (sletninger, eksporter, indstillinger, adgang). */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    details: text("details"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
+/** Svarskabeloner til indbakken (Messenger/Instagram). */
+export const savedReplies = pgTable(
+  "saved_replies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("saved_replies_workspace_idx").on(t.workspaceId, t.position)],
 );

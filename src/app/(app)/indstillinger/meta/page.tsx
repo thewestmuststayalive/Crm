@@ -4,6 +4,7 @@ import {
   connectAdAccount,
   connectPage,
   disconnectAdAccount,
+  setAdAccountCompany,
   disconnectMeta,
   disconnectPage,
   importHistory,
@@ -16,7 +17,7 @@ import { buttonClass } from "@/components/styles";
 import { Button, Card, ConfirmButton, Select } from "@/components/ui";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
-import { getMemberOptions } from "@/lib/crm";
+import { getCompanyOptions, getMemberOptions } from "@/lib/crm";
 import { isEncryptionConfigured } from "@/lib/crypto";
 import { formatDateTime } from "@/lib/labels";
 import { getMetaConfig, graphGetAll } from "@/lib/meta/graph";
@@ -78,10 +79,11 @@ export default async function MetaSettingsPage({ searchParams }: PageProps<"/ind
   }
 
   const connection = await getConnection(workspace.id);
-  const [pages, adAccounts, members] = await Promise.all([
+  const [pages, adAccounts, members, companies] = await Promise.all([
     db.select().from(schema.metaPages).where(eq(schema.metaPages.workspaceId, workspace.id)),
     db.select().from(schema.metaAdAccounts).where(eq(schema.metaAdAccounts.workspaceId, workspace.id)),
     getMemberOptions(workspace.id),
+    getCompanyOptions(workspace.id),
   ]);
 
   // Hent hvilke sider og annoncekonti brugeren har adgang til hos Meta.
@@ -254,12 +256,31 @@ export default async function MetaSettingsPage({ searchParams }: PageProps<"/ind
                 </span>
               </span>
               {isAdmin && (
-                <form action={disconnectAdAccount}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <ConfirmButton message={`Frakobl ${a.name}?`} className="px-2.5 py-1 text-xs">
-                    Frakobl
-                  </ConfirmButton>
-                </form>
+                <span className="flex flex-wrap items-center gap-2">
+                  <form action={setAdAccountCompany} className="flex items-center gap-2">
+                    <input type="hidden" name="id" value={a.id} />
+                    <label htmlFor={`acc-company-${a.id}`} className="text-xs text-slate-500">
+                      Kunde
+                    </label>
+                    <Select id={`acc-company-${a.id}`} name="companyId" defaultValue={a.companyId ?? ""} className="text-xs">
+                      <option value="">Egen konto</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button type="submit" variant="secondary" className="px-2.5 py-1 text-xs">
+                      Gem
+                    </Button>
+                  </form>
+                  <form action={disconnectAdAccount}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <ConfirmButton message={`Frakobl ${a.name}?`} className="px-2.5 py-1 text-xs">
+                      Frakobl
+                    </ConfirmButton>
+                  </form>
+                </span>
               )}
             </li>
           ))}

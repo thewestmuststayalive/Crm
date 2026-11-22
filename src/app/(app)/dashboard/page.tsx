@@ -5,7 +5,16 @@ import { Stat } from "@/components/stat";
 import { buttonClass, cx } from "@/components/styles";
 import { Card } from "@/components/ui";
 import { requireWorkspace } from "@/lib/auth";
+import { BOOKING_STATUS_LABELS, formatPlate, getTodaysBookings } from "@/lib/booking";
 import { getDashboard } from "@/lib/dashboard";
+import { getModules } from "@/lib/modules";
+import { getOnboarding, onboardingCookie } from "@/lib/onboarding";
+import { hideOnboarding } from "@/app/actions/workspace";
+import { cookies } from "next/headers";
+import { UsageBar } from "../tid/time-components";
+import { currentMonth, formatHM, formatMonth } from "@/lib/duration";
+import { getRetainerOverview } from "@/lib/time-tracking";
+import { localTime } from "@/lib/time";
 import { formatDuration } from "@/lib/waiting";
 import { formatDate, formatIsoDate, formatKr, SOURCE_LABELS, todayIso } from "@/lib/labels";
 
@@ -48,6 +57,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const all = visning === "alle" && memberships.length > 1;
   const workspaceIds = all ? memberships.map((m) => m.id) : [workspace.id];
   const d = await getDashboard(workspaceIds, user.id);
+  const modules = all ? { booking: false, agency: false } : await getModules(workspace.id);
+  const showBookings = modules.booking;
+  const month = currentMonth();
+  const hidden = all || (await cookies()).get(onboardingCookie(workspace.id))?.value === "1";
+  const steps = hidden ? [] : await getOnboarding(workspace.id);
+  const stepsDone = steps.filter((st) => st.done).length;
+  const showOnboarding = steps.length > 0 && stepsDone < steps.length;
+  const retainers = modules.agency ? (await getRetainerOverview(workspace.id, month, true)).slice(0, 6) : [];
+  const bookingsToday = showBookings ? await getTodaysBookings(workspace.id) : [];
   const today = todayIso();
 
   const totalSources = d.sources.reduce((s, r) => s + r.n, 0);
@@ -79,6 +97,57 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </p>
       )}
 
+      {showOnboarding && (
+        <section
+          aria-label="Kom godt i gang"
+          className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Kom godt i gang</h2>
+              <p className="text-sm text-slate-600">
+                {stepsDone} af {steps.length} klaret – så får du mest ud af Kundespor.
+              </p>
+            </div>
+            <form action={hideOnboarding}>
+              <button className="text-xs text-slate-500 underline hover:text-slate-800">Skjul</button>
+            </form>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+            <div
+              className="h-full bg-brand-600"
+              style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }}
+            />
+          </div>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {steps.map((st) => (
+              <li key={st.key}>
+                <Link
+                  href={st.href}
+                  className={cx(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                    st.done
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-brand-300",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cx(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]",
+                      st.done ? "bg-emerald-600 text-white" : "border border-slate-300",
+                    )}
+                  >
+                    {st.done ? "✓" : ""}
+                  </span>
+                  <span className={st.done ? "line-through" : ""}>{st.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Nye kontakter" value={d.newLeads} hint="Seneste 7 dage" />
         <Stat label="Åben pipeline" value={formatKr(d.openPipeline.value)} hint={`${d.openPipeline.count} deals`} />
@@ -95,9 +164,63 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               {d.waiting}
             </Link>
           }
-          hint={d.response.messages !== null ? `Median svartid ${formatDuration(d.response.messages)}` : "Beskeder og nye leads"}
+          hint={
+            d.response.messages !== null
+              ? `Median svartid ${formatDuration(d.response.messages)}`
+              : "Beskeder og nye leads"
+          }
         />
       </div>
+
+      {modules.agency && retainers.length > 0 && (
+        <Card title={`Retainers i ${formatMonth(month)}`}>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Retainers">
+            {retainers.map((r) => (
+              <li key={r.id} className="space-y-1">
+                <p className="flex justify-between gap-2 text-sm">
+                  <Link
+                    href={`/virksomheder/${r.companyId}`}
+                    className="truncate font-medium text-slate-900 hover:underline"
+                  >
+                    {r.companyName}
+                  </Link>
+                  <span className="shrink-0 text-slate-600">
+                    {formatHM(r.used)} / {formatHM(r.monthlyMinutes)}
+                  </span>
+                </p>
+                <UsageBar pct={r.pct} label={`${r.companyName}: ${r.pct} % brugt`} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {showBookings && (
+        <Card title={`Dagens bookinger (${bookingsToday.length})`}>
+          {bookingsToday.length === 0 ? (
+            <p className="text-sm text-slate-500">Ingen bookinger i dag.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100" aria-label="Dagens bookinger">
+              {bookingsToday.map((b) => (
+                <li key={b.id}>
+                  <Link
+                    href={`/kalender/${b.id}`}
+                    className="flex flex-wrap items-center gap-x-3 py-2 text-sm hover:bg-slate-50"
+                  >
+                    <span className="w-12 font-semibold text-slate-900">{localTime(b.startsAt)}</span>
+                    <span className="text-slate-900">{b.serviceName}</span>
+                    <span className="text-slate-600">{b.contactName}</span>
+                    {b.plate && <span className="font-mono text-xs text-slate-500">{formatPlate(b.plate)}</span>}
+                    {b.status !== "CONFIRMED" && (
+                      <span className="text-xs text-slate-500">({BOOKING_STATUS_LABELS[b.status]})</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Dine opgaver i dag">
@@ -109,7 +232,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 const path = t.dealId ? `/pipeline/${t.dealId}` : t.contactId ? `/kunder/${t.contactId}` : "/opgaver";
                 return (
                   <li key={t.id} className="py-2 text-sm">
-                    <WsLink current={workspace.id} workspaceId={t.workspaceId} path={path} className="text-slate-900 hover:underline">
+                    <WsLink
+                      current={workspace.id}
+                      workspaceId={t.workspaceId}
+                      path={path}
+                      className="text-slate-900 hover:underline"
+                    >
                       {t.title}
                     </WsLink>
                     <p className={cx("text-xs", t.dueDate && t.dueDate < today ? "text-red-700" : "text-amber-700")}>
@@ -134,7 +262,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               {d.recentLeads.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                   <div className="min-w-0">
-                    <WsLink current={workspace.id} workspaceId={c.workspaceId} path={`/kunder/${c.id}`} className="block truncate text-slate-900 hover:underline">
+                    <WsLink
+                      current={workspace.id}
+                      workspaceId={c.workspaceId}
+                      path={`/kunder/${c.id}`}
+                      className="block truncate text-slate-900 hover:underline"
+                    >
                       {c.name}
                     </WsLink>
                     <p className="text-xs text-slate-500">

@@ -11,12 +11,14 @@ export function TaskForm({
   contactId,
   companyId,
   dealId,
+  projectId,
 }: {
   members: { id: string; name: string }[];
   defaultAssigneeId: string;
   contactId?: string;
   companyId?: string;
   dealId?: string;
+  projectId?: string;
 }) {
   const [state, action] = useActionState(createTask, {});
   return (
@@ -24,6 +26,7 @@ export function TaskForm({
       {contactId && <input type="hidden" name="contactId" value={contactId} />}
       {companyId && <input type="hidden" name="companyId" value={companyId} />}
       {dealId && <input type="hidden" name="dealId" value={dealId} />}
+      {projectId && <input type="hidden" name="projectId" value={projectId} />}
       <label htmlFor="task-title" className="sr-only">
         Ny opgave
       </label>

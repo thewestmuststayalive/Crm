@@ -1,18 +1,28 @@
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
+import { Suspense } from "react";
 import { logout } from "@/app/actions/auth";
 import { Logo } from "@/components/brand";
 import { NotificationPoller } from "@/components/notification-poller";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
+import { countBookingsToday } from "@/lib/booking";
+import { getModules } from "@/lib/modules";
+import { getRunningTimer } from "@/lib/time-tracking";
 import { countWaiting } from "@/lib/waiting";
+import { CommandPalette } from "./command-palette";
+import { MobileNav } from "./mobile-nav";
+import { NavigationProgress } from "./navigation-progress";
+import { QuickCreate } from "./quick-create";
+import { TimerBadge } from "./timer-badge";
 import { Nav } from "./nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, workspace, memberships } = await requireWorkspace();
-  const [[{ unread }], [{ notes }], waiting] = await Promise.all([
+  const modules = await getModules(workspace.id);
+  const [[{ unread }], [{ notes }], waiting, bookingsToday] = await Promise.all([
     db
       .select({ unread: sql<number>`coalesce(sum(${schema.conversations.unreadCount}), 0)::int` })
       .from(schema.conversations)
@@ -22,7 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from(schema.notifications)
       .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt))),
     countWaiting(workspace.id),
+    modules.booking ? countBookingsToday(workspace.id) : 0,
   ]);
+  const running = modules.agency ? await getRunningTimer(workspace.id, user.id) : null;
+  const badges = { "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday };
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -37,7 +50,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               className="relative rounded-md p-1.5 text-brand-100 hover:bg-white/10 hover:text-white"
               aria-label={notes > 0 ? `Notifikationer, ${notes} ulæste` : "Notifikationer"}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                 <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
               </svg>
@@ -48,14 +71,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               )}
             </Link>
           </div>
-          <WorkspaceSwitcher
-            current={workspace.id}
-            workspaces={memberships.map((m) => ({ id: m.id, name: m.name }))}
-          />
+          <WorkspaceSwitcher current={workspace.id} workspaces={memberships.map((m) => ({ id: m.id, name: m.name }))} />
+          <div className="flex gap-2">
+            <div className="min-w-0 flex-1">
+              <CommandPalette modules={modules} />
+            </div>
+            <QuickCreate modules={modules} />
+          </div>
         </div>
-        <Nav badges={{ "/indbakke": unread, "/venter": waiting }} />
+        <div className="hidden md:block">
+          <Nav badges={badges} modules={modules} />
+        </div>
+        {running?.startedAt && (
+          <TimerBadge startedAt={running.startedAt.toISOString()} label={running.companyName ?? "Intern tid"} />
+        )}
         <NotificationPoller initialUnread={notes} />
-        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
+        <div className="hidden items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
           <div className="min-w-0">
             <p className="truncate font-medium text-white">{user.name}</p>
             <p className="hidden truncate text-brand-200/80 md:block">
@@ -67,7 +98,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 pb-24 md:p-8">{children}</main>
+      <MobileNav modules={modules} badges={badges} userName={user.name} logout={logout} />
+      <Suspense>
+        <NavigationProgress />
+      </Suspense>
     </div>
   );
 }

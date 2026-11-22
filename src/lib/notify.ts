@@ -51,11 +51,16 @@ export async function notify(input: {
 
     if (input.email && isEmailConfigured()) {
       const users = await db
-        .select({ email: schema.users.email, name: schema.users.name, wants: schema.users.emailNotifications })
+        .select({
+          email: schema.users.email,
+          name: schema.users.name,
+          wants: schema.users.emailNotifications,
+          muted: schema.users.mutedEmailTypes,
+        })
         .from(schema.users)
         .where(inArray(schema.users.id, userIds));
       const appUrl = await getAppUrl();
-      for (const u of users.filter((x) => x.wants)) {
+      for (const u of users.filter((x) => x.wants && !x.muted.includes(input.type))) {
         await sendEmail({
           to: u.email,
           subject: input.title,

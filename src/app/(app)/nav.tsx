@@ -1,25 +1,45 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
-const items: { href: string; label: string; also?: string[] }[] = [
+export const NAV_ITEMS: { href: string; label: string; also?: string[]; module?: "booking" | "agency" }[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/venter", label: "Venter på svar" },
   { href: "/kunder", label: "Kunder", also: ["/virksomheder"] },
   { href: "/pipeline", label: "Pipeline" },
+  { href: "/kalender", label: "Kalender", also: ["/biler"], module: "booking" },
   { href: "/opgaver", label: "Opgaver" },
+  { href: "/projekter", label: "Projekter", module: "agency" },
+  { href: "/tid", label: "Tid", module: "agency" },
   { href: "/indbakke", label: "Indbakke" },
   { href: "/annoncer", label: "Annoncer" },
   { href: "/indstillinger", label: "Indstillinger" },
 ];
 
+/** Lille prik, der pulserer, mens siden for et menupunkt hentes. */
+function Pending() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={`h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400 transition-opacity ${pending ? "animate-pulse opacity-100" : "opacity-0"}`}
+    />
+  );
+}
+
 /** Hovedmenuen. `badges` viser fx antal ulæste beskeder ud for et menupunkt. */
-export function Nav({ badges = {} }: { badges?: Record<string, number> }) {
+export function Nav({
+  badges = {},
+  modules = { booking: false, agency: false },
+}: {
+  badges?: Record<string, number>;
+  modules?: { booking: boolean; agency: boolean };
+}) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible">
-      {items.map((item) => {
+      {NAV_ITEMS.filter((item) => !item.module || modules[item.module]).map((item) => {
         const active = [item.href, ...(item.also ?? [])].some(
           (href) => pathname === href || pathname.startsWith(href + "/"),
         );
@@ -32,11 +52,20 @@ export function Nav({ badges = {} }: { badges?: Record<string, number> }) {
               active ? "bg-white/12 text-white" : "text-brand-100/80 hover:bg-white/6 hover:text-white"
             }`}
           >
-            {item.label}
+            <span className="flex items-center gap-2">
+              {item.label}
+              <Pending />
+            </span>
             {badge > 0 && (
               <span
                 className="rounded-full bg-accent-400 px-1.5 text-[10px] font-semibold text-brand-950"
-                aria-label={item.href === "/venter" ? `${badge} venter` : `${badge} ulæste`}
+                aria-label={
+                  item.href === "/venter"
+                    ? `${badge} venter`
+                    : item.href === "/kalender"
+                      ? `${badge} i dag`
+                      : `${badge} ulæste`
+                }
               >
                 {badge}
               </span>

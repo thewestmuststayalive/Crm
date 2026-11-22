@@ -5,6 +5,7 @@ import { db, schema } from "@/db";
 import type { ReviewRequestStatus } from "@/db/schema";
 import { logEvent } from "./crm";
 import { brandedEmail, isEmailConfigured, sendEmail } from "./email";
+import { emailBrand } from "./branding";
 import { getAppUrl } from "./url";
 
 // Anmodning om anmeldelse: når en deal vindes, planlægges en venlig e-mail til kontakten
@@ -126,7 +127,7 @@ export async function sendDueReviewRequests() {
       subject: `Hvordan var din oplevelse med ${settings.name}?`,
       headers: { "List-Unsubscribe": `<${appUrl}/anmeld/${r.token}/afmeld>` },
       ...brandedEmail({
-        sender: settings.name,
+        ...(await emailBrand(r.workspaceId)),
         heading: `Hej ${row.contactName.split(" ")[0]}`,
         paragraphs: (settings.message || defaultReviewMessage(settings.name)).split(/\n{2,}/),
         button: { label: "Skriv en anmeldelse", url: `${appUrl}/anmeld/${r.token}` },

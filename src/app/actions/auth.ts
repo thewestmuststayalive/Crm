@@ -4,6 +4,7 @@ import { count, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { NOTIFICATION_TYPES } from "@/lib/notification-types";
 import { db, schema } from "@/db";
 import { requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
 import { getDummyHash, hashPassword, verifyPassword } from "@/lib/password";
@@ -78,13 +79,8 @@ export async function register(_prev: ActionState, formData: FormData): Promise<
       .insert(schema.users)
       .values({ name, email: parsed.data.email, passwordHash })
       .returning({ id: schema.users.id });
-    const [ws] = await tx
-      .insert(schema.workspaces)
-      .values({ name: company })
-      .returning({ id: schema.workspaces.id });
-    await tx
-      .insert(schema.memberships)
-      .values({ userId: user.id, workspaceId: ws.id, role: "OWNER" });
+    const [ws] = await tx.insert(schema.workspaces).values({ name: company }).returning({ id: schema.workspaces.id });
+    await tx.insert(schema.memberships).values({ userId: user.id, workspaceId: ws.id, role: "OWNER" });
     await createDefaultPipeline(tx, ws.id);
     return { userId: user.id, workspaceId: ws.id };
   });
@@ -107,7 +103,14 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   await db
     .update(schema.users)
-    .set({ name: parsed.data.name, emailNotifications: formData.get("emailNotifications") === "on" })
+    .set({
+      name: parsed.data.name,
+      emailNotifications: formData.get("emailNotifications") === "on",
+      // Typer uden flueben vil brugeren ikke have på e-mail.
+      ...(formData.has("prefs")
+        ? { mutedEmailTypes: NOTIFICATION_TYPES.filter((t) => formData.get(`email_${t}`) !== "on") }
+        : {}),
+    })
     .where(eq(schema.users.id, user.id));
   return { success: "Profilen er gemt" };
 }

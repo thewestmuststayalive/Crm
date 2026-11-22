@@ -2,7 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteContact } from "@/app/actions/contacts";
+import { addVehicle } from "@/app/actions/bookings";
 import { deletePersonCompletely, setEmailOptOut } from "@/app/actions/gdpr";
+import { VehicleForm } from "@/components/vehicle-form";
+import {
+  BOOKING_STATUS_LABELS,
+  BOOKING_STATUS_STYLES,
+  formatPlate,
+  getBookingsFor,
+  getVehiclesFor,
+} from "@/lib/booking";
+import { formatWhen } from "@/lib/booking-flow";
+import { getModules } from "@/lib/modules";
 import { ActivityForm } from "@/components/activity-form";
 import { Badge, DetailRow, PageHeader, SourceBadge, StatusBadge } from "@/components/display";
 import { buttonClass } from "@/components/styles";
@@ -27,13 +38,16 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
   if (!contact) notFound();
   const customFields = await getCustomFields(workspace.id, "CONTACT");
 
-  const [company, ownerName, timeline, deals, tasks, members] = await Promise.all([
+  const modules = await getModules(workspace.id);
+  const [company, ownerName, timeline, deals, tasks, members, vehicles, bookings] = await Promise.all([
     contact.companyId ? getCompany(workspace.id, contact.companyId) : null,
     getUserName(contact.ownerId),
     getTimeline(workspace.id, { contactId: contact.id }),
     getDealsFor(workspace.id, { contactId: contact.id }),
     getTasks(workspace.id, { contactId: contact.id }),
     getMemberOptions(workspace.id),
+    modules.booking ? getVehiclesFor(workspace.id, [contact.id]) : [],
+    modules.booking ? getBookingsFor(workspace.id, { contactId: contact.id }) : [],
   ]);
 
   return (
@@ -99,6 +113,62 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
               <DetailRow label="Opdateret">{formatDateTime(contact.updatedAt)}</DetailRow>
             </dl>
           </Card>
+          {modules.booking && (
+            <>
+              <Card title="Biler">
+                {vehicles.length > 0 && (
+                  <ul className="mb-4 divide-y divide-slate-100" aria-label="Biler">
+                    {vehicles.map((v) => (
+                      <li key={v.id}>
+                        <Link
+                          href={`/biler/${v.id}`}
+                          className="flex items-center gap-3 py-2 text-sm hover:bg-slate-50"
+                        >
+                          {v.plate && (
+                            <span className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold">
+                              {formatPlate(v.plate)}
+                            </span>
+                          )}
+                          <span className="text-slate-700">
+                            {[v.make, v.model, v.color].filter(Boolean).join(" · ") || "Bil"}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <details>
+                  <summary className="cursor-pointer text-sm font-medium text-brand-800">Tilføj bil</summary>
+                  <div className="mt-3">
+                    <VehicleForm idPrefix="v-new" action={addVehicle.bind(null, contact.id)} submitLabel="Tilføj bil" />
+                  </div>
+                </details>
+              </Card>
+              <Card title="Bookinger">
+                {bookings.length > 0 && (
+                  <ul className="mb-3 divide-y divide-slate-100" aria-label="Bookinger">
+                    {bookings.slice(0, 10).map((b) => (
+                      <li key={b.id}>
+                        <Link
+                          href={`/kalender/${b.id}`}
+                          className="flex items-center justify-between gap-3 py-2 text-sm hover:bg-slate-50"
+                        >
+                          <span>
+                            <span className="block font-medium text-slate-900">{b.serviceName}</span>
+                            <span className="text-xs text-slate-500">{formatWhen(b.startsAt)}</span>
+                          </span>
+                          <Badge className={BOOKING_STATUS_STYLES[b.status]}>{BOOKING_STATUS_LABELS[b.status]}</Badge>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link href={`/kalender/ny?kontakt=${contact.id}`} className={buttonClass("secondary")}>
+                  Ny booking
+                </Link>
+              </Card>
+            </>
+          )}
           <DealsCard deals={deals} newHref={`/pipeline/ny?kontakt=${contact.id}`} />
           <Card title="Opgaver">
             <TaskForm members={members} defaultAssigneeId={user.id} contactId={contact.id} />

@@ -63,7 +63,7 @@ Databasen opdateres (migreres) automatisk, når `main` deployes til den rigtige 
 
 ## 6. Automatik
 
-- **Hver morgen** (Vercel Cron, `vercel.json` → `/api/cron/daily`) kører Kundespor de automatiske opfølgningsregler, henter annoncedata fra Meta, sender planlagte anmodninger om anmeldelse, sletter gamle leads (kun i firmaer, der har slået det til under Indstillinger → Persondata) og sender den daglige oversigt på e-mail. Det virker også på Hobby. Kræver at `CRON_SECRET` er sat.
+- **Hver morgen** (Vercel Cron, `vercel.json` → `/api/cron/daily`) kører Kundespor de automatiske opfølgningsregler, henter annoncedata fra Meta, sender planlagte anmodninger om anmeldelse, sender påmindelser til kunder med en booking næste dag, sletter gamle leads (kun i firmaer, der har slået det til under Indstillinger → Persondata) og sender den daglige oversigt på e-mail. Det virker også på Hobby. Kræver at `CRON_SECRET` er sat.
 - **Sundhedstjek:** `/api/health` svarer `{"ok":true}`, når appen kører. Kan bruges til overvågning (fx UptimeRobot).
 
 ## 7. Backup

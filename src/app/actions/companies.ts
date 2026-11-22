@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { requireRole, requireWorkspace } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 import { getCompany, isMemberOf } from "@/lib/crm";
 import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
 import { isUuid, optionalEmail, optionalId, optionalText } from "@/lib/validation";
@@ -63,12 +64,14 @@ export async function updateCompany(id: string, _prev: ActionState, formData: Fo
 
 /** Sletter virksomheden. Kontaktpersonerne bevares, men mister koblingen. */
 export async function deleteCompany(formData: FormData) {
-  const { workspace } = await requireRole("ADMIN");
+  const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) return;
-  await db
+  const [deleted] = await db
     .delete(schema.companies)
-    .where(and(eq(schema.companies.workspaceId, workspace.id), eq(schema.companies.id, id)));
+    .where(and(eq(schema.companies.workspaceId, workspace.id), eq(schema.companies.id, id)))
+    .returning({ name: schema.companies.name });
+  if (deleted) await audit(workspace.id, user.id, "Virksomhed slettet", deleted.name);
   revalidatePath("/virksomheder");
   redirect("/virksomheder");
 }
