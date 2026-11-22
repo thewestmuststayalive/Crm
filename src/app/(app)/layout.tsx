@@ -10,6 +10,8 @@ import { countBookingsToday } from "@/lib/booking";
 import { getModules } from "@/lib/modules";
 import { getRunningTimer } from "@/lib/time-tracking";
 import { countWaiting } from "@/lib/waiting";
+import { CommandPalette } from "./command-palette";
+import { QuickCreate } from "./quick-create";
 import { TimerBadge } from "./timer-badge";
 import { Nav } from "./nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
@@ -66,6 +68,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           </div>
           <WorkspaceSwitcher current={workspace.id} workspaces={memberships.map((m) => ({ id: m.id, name: m.name }))} />
+          <div className="flex gap-2">
+            <div className="min-w-0 flex-1">
+              <CommandPalette modules={modules} />
+            </div>
+            <QuickCreate modules={modules} />
+          </div>
         </div>
         <Nav
           badges={{ "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday }}
