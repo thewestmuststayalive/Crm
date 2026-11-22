@@ -167,3 +167,17 @@ Research af bilplejesystemer (Anolla, Urable, Jobber, Mobile Tech RX) og bureaus
 - [Anmeldelser efter salg (Salesforce)](https://www.salesforce.com/blog/get-reviews-for-your-small-business/) · [Trustpilot–HubSpot](https://business.trustpilot.com/partners/integrations/partner/hubspot)
 
 *Priser er indsamlet fra tredjepartskilder og leverandørsider i 2026 og kan have ændret sig.*
+
+## 8. Forbedringsrunder (nat til 22. nov. 2026)
+
+| Runde | Indhold |
+| ----- | ------- |
+| 1 | Søgning med Ctrl+K (kontakter, virksomheder, deals, nummerplader, projekter), "+ Ny"-knap, markering i menuen mens en side hentes |
+| 2 | Logo og firmafarve på alle kundesider og e-mails, egne e-mailtekster, notifikationsvalg pr. type |
+| 3 | Bundmenu på telefonen, filtre/sortering/masse-handlinger i kundelisten, "Kom godt i gang" på dashboardet, indlæsningsbjælke ved sideskift |
+| 4 | Aktivitetslog, download af alle data, sletning af firma (ejer), logo-kontrol på filindhold |
+| 5 | Svarskabeloner i indbakken, klik-for-at-booke i kalenderen, udsæt opgaver med ét klik |
+
+**Lært:** Skeletvisninger (loading.js) streamer siden. Ved hurtige klik kunne rester af forrige side blive hængende, og "ikke fundet" svarede 200 i stedet for 404. Derfor bruges i stedet en indlæsningsbjælke.
+
+**Næste forslag:** før/efter-billeder (kræver Vercel Blob), betaling/depositum ved booking (Stripe/MobilePay), SMS-påmindelser, AI-svarforslag i indbakken.
