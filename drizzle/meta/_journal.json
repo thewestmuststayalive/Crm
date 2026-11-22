@@ -127,6 +127,13 @@
       "when": 1795337389404,
       "tag": "0017_projects_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795338247521,
+      "tag": "0018_branding",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { BrandHeader } from "@/components/brand-header";
+import { brandStyle, getBranding } from "@/lib/branding";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand";
@@ -15,16 +17,21 @@ export default async function UnsubscribeBookingPage({ params }: PageProps<"/boo
   const { token } = await params;
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) notFound();
   const [row] = await db
-    .select({ name: schema.workspaces.name })
+    .select({ name: schema.workspaces.name, workspaceId: schema.workspaces.id })
     .from(schema.bookings)
     .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.bookings.workspaceId))
     .where(eq(schema.bookings.token, token))
     .limit(1);
   if (!row) notFound();
+  const brand = await getBranding(row.workspaceId);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main
+      style={brandStyle(brand.color)}
+      className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12"
+    >
       <div className="w-full max-w-md space-y-6">
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <BrandHeader brand={brand} className="mb-4" />
           <h1 className="text-lg font-semibold text-slate-900">Afmeld påmindelser fra {row.name}</h1>
           <p className="mt-2 text-sm text-slate-600">
             Du får så ikke flere påmindelser om nye behandlinger eller lignende e-mails. Bekræftelser på tider, du selv

@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getMemberships, requireRole, requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
+import { EMAIL_TEXTS, isHexColor, LOGO_MAX_BYTES, LOGO_TYPES } from "@/lib/branding";
 import { createDefaultPipeline } from "@/lib/pipelines";
 import type { ActionState } from "./types";
 
@@ -48,7 +49,12 @@ export async function renameWorkspace(_prev: ActionState, formData: FormData): P
   const { workspace } = await requireRole("ADMIN");
   const parsed = nameSchema.safeParse(formData.get("name"));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const target = z.coerce.number().int().min(5).max(7 * 24 * 60).safeParse(formData.get("responseTargetMinutes"));
+  const target = z.coerce
+    .number()
+    .int()
+    .min(5)
+    .max(7 * 24 * 60)
+    .safeParse(formData.get("responseTargetMinutes"));
   if (!target.success) return { error: "Svartidsmålet skal være mellem 5 minutter og 7 dage" };
   await db
     .update(schema.workspaces)
@@ -96,4 +102,38 @@ export async function updateQuoteSettings(_prev: ActionState, formData: FormData
     .where(eq(schema.workspaces.id, workspace.id));
   revalidatePath("/indstillinger");
   return { success: "Oplysningerne på tilbud er gemt" };
+}
+
+/** Logo og firmafarve på kundesider og i e-mails. */
+export async function saveBranding(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { workspace } = await requireRole("ADMIN");
+  const color = String(formData.get("brandColor") ?? "");
+  if (!isHexColor(color)) return { error: "Vælg en farve" };
+  const update: { brandColor: string; logoData?: string | null } = { brandColor: color.toLowerCase() };
+  if (formData.get("removeLogo") === "on") update.logoData = null;
+  const file = formData.get("logo");
+  if (file instanceof File && file.size > 0) {
+    if (!(LOGO_TYPES as readonly string[]).includes(file.type))
+      return { error: "Logoet skal være PNG, JPG eller WebP" };
+    if (file.size > LOGO_MAX_BYTES) return { error: "Logoet må højst fylde 300 KB" };
+    update.logoData = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`;
+  }
+  await db.update(schema.workspaces).set(update).where(eq(schema.workspaces.id, workspace.id));
+  revalidatePath("/indstillinger");
+  return { success: "Udseendet er gemt." };
+}
+
+/** Egne tekster i e-mails til kunder. Tom tekst = standardteksten. */
+export async function saveEmailTexts(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { workspace } = await requireRole("ADMIN");
+  const texts: Record<string, string> = {};
+  for (const key of Object.keys(EMAIL_TEXTS)) {
+    const value = String(formData.get(key) ?? "")
+      .trim()
+      .slice(0, 2000);
+    if (value) texts[key] = value;
+  }
+  await db.update(schema.workspaces).set({ emailTexts: texts }).where(eq(schema.workspaces.id, workspace.id));
+  revalidatePath("/indstillinger/e-mails");
+  return { success: "Teksterne er gemt." };
 }

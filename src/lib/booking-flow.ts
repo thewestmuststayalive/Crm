@@ -5,6 +5,7 @@ import type { BookingStatus } from "@/db/schema";
 import { formatPlate, newBookingToken } from "./booking";
 import { logEvent } from "./crm";
 import { brandedEmail, isEmailConfigured, sendEmail } from "./email";
+import { emailBrand, emailText } from "./branding";
 import { formatOre } from "./quote-math";
 import { addDays, formatLongDate, localDate, localTime, zonedToUtc } from "./time";
 import { getAppUrl } from "./url";
@@ -126,6 +127,7 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
   const url = `${await getAppUrl()}/book/aflys/${booking.token}`;
   const first = ctx.contactName.split(" ")[0];
   const when = formatWhen(booking.startsAt);
+  const vars = { navn: first, ydelse: booking.serviceName, tid: when, firma: ws.name };
   const contactLine = ws.phone ? `Spørgsmål? Ring på ${ws.phone}.` : "Har du spørgsmål, så svar gerne på denne e-mail.";
   const cancelLine = `Kan du ikke komme, så aflys senest ${ctx.cancelHours ?? 24} timer før via knappen herunder.`;
 
@@ -133,7 +135,7 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
     confirmation: {
       subject: `Bekræftelse: ${booking.serviceName} ${when}`,
       heading: `Tak for din booking, ${first}`,
-      intro: `Vi glæder os til at se dig ${when}.`,
+      intro: await emailText(booking.workspaceId, "bookingConfirmation", vars),
       button: true,
     },
     moved: {
@@ -145,7 +147,7 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
     reminder: {
       subject: `Påmindelse: ${booking.serviceName} i morgen kl. ${localTime(booking.startsAt)}`,
       heading: `Vi ses i morgen, ${first}`,
-      intro: `Husk din tid ${when}.`,
+      intro: await emailText(booking.workspaceId, "bookingReminder", vars),
       button: true,
     },
     cancelled: {
@@ -160,7 +162,7 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
     to: ctx.contactEmail,
     subject: content.subject,
     ...brandedEmail({
-      sender: ws.name,
+      ...(await emailBrand(booking.workspaceId)),
       heading: content.heading,
       paragraphs: [content.intro, details(ctx).join("\n"), ...(content.button ? [cancelLine] : []), contactLine],
       button: content.button ? { label: "Se eller aflys din tid", url } : undefined,
@@ -271,11 +273,16 @@ export async function sendServiceReminders(now = new Date()) {
       subject: `Tid til ${booking.serviceName.toLowerCase()} igen?`,
       headers: { "List-Unsubscribe": `<${appUrl}/book/afmeld/${booking.token}>` },
       ...brandedEmail({
-        sender: row.wsName,
+        ...(await emailBrand(booking.workspaceId)),
         heading: `Hej ${first}`,
         paragraphs: [
-          `Det er ${row.months} måneder siden, ${row.plate ? `bilen (${formatPlate(row.plate)})` : "din bil"} fik ${booking.serviceName.toLowerCase()} hos os.`,
-          "Det er et godt tidspunkt at få det gjort igen. Book en tid, når det passer dig.",
+          await emailText(booking.workspaceId, "serviceReminder", {
+            navn: first,
+            ydelse: booking.serviceName.toLowerCase(),
+            måneder: String(row.months),
+            bil: row.plate ? `bilen (${formatPlate(row.plate)})` : "din bil",
+            firma: row.wsName,
+          }),
         ],
         button: { label: "Book tid", url: `${appUrl}/book/${row.key}` },
         footer: `Sendt af ${row.wsName}.`,

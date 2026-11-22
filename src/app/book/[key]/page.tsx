@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { BrandHeader } from "@/components/brand-header";
+import { brandStyle, getBranding } from "@/lib/branding";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand";
 import { bookableDays, getPublicBooking, getServices } from "@/lib/booking";
@@ -16,10 +18,12 @@ export default async function PublicBookingPage({ params }: PageProps<"/book/[ke
   const days = bookableDays(pub.settings);
   const ws = pub.workspace;
 
+  const brand = await getBranding(pub.workspace.id);
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
+    <main style={brandStyle(brand.color)} className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-2xl space-y-6">
         <header className="space-y-1">
+          <BrandHeader brand={brand} className="mb-3" />
           <h1 className="font-display text-2xl font-bold text-slate-900">Book tid hos {ws.name}</h1>
           {pub.settings.intro && <p className="text-sm whitespace-pre-line text-slate-600">{pub.settings.intro}</p>}
           <p className="text-sm text-slate-500">

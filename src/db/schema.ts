@@ -25,6 +25,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   /** Modtag e-mail ved nye leads tildelt brugeren. */
   emailNotifications: boolean("email_notifications").notNull().default(true),
+  /** Notifikationstyper brugeren ikke vil have på e-mail (de vises stadig i appen). */
+  mutedEmailTypes: jsonb("muted_email_types").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -65,6 +67,13 @@ export const workspaces = pgTable("workspaces", {
   // Moduler, der kan slås til pr. firma.
   /** Booking, kalender og biler (fx bilpleje). */
   bookingEnabled: boolean("booking_enabled").notNull().default(false),
+  // Udseende på kundesider og i e-mails.
+  /** Logo som data-URL (PNG/JPEG/WebP, højst 300 KB). */
+  logoData: text("logo_data"),
+  /** Firmafarve som hex, fx "#1b6257". */
+  brandColor: text("brand_color"),
+  /** Egne tekster i e-mails til kunder, nøglet på e-mailtype. */
+  emailTexts: jsonb("email_texts").$type<Record<string, string>>().notNull().default({}),
   /** Tidsregistrering, retainers og projekter (fx bureau). */
   agencyEnabled: boolean("agency_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

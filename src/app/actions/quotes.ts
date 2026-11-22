@@ -8,6 +8,7 @@ import { db, schema } from "@/db";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getContact, getDeal, logEvent } from "@/lib/crm";
 import { brandedEmail, isEmailConfigured, sendEmail } from "@/lib/email";
+import { emailBrand, emailText } from "@/lib/branding";
 import { formatOre, parseAmountOre, parseDanishNumber, quoteTotals } from "@/lib/quote-math";
 import { getQuote, getQuoteLines, newQuoteToken, nextQuoteNumber } from "@/lib/quotes";
 import { getAppUrl } from "@/lib/url";
@@ -159,10 +160,15 @@ export async function sendQuote(quoteId: string): Promise<ActionState> {
       to: contact.email,
       subject: `Tilbud #${quote.number} fra ${workspace.name}: ${quote.title}`,
       ...brandedEmail({
-        sender: workspace.name,
+        ...(await emailBrand(workspace.id)),
         heading: `Hej ${contact.name.split(" ")[0]}`,
         paragraphs: [
-          `Tak for din interesse. Her er vores tilbud på "${quote.title}" på ${formatOre(totals.total)} inkl. moms.`,
+          await emailText(workspace.id, "quoteSent", {
+            navn: contact.name.split(" ")[0],
+            titel: quote.title,
+            beløb: formatOre(totals.total),
+            firma: workspace.name,
+          }),
           "Du kan se hele tilbuddet og acceptere det online via knappen herunder.",
         ],
         button: { label: "Se tilbuddet", url },

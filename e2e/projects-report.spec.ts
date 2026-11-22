@@ -91,6 +91,7 @@ test("påmindelse om ny behandling efter ydelsens interval, med afmelding", asyn
   await page.goto("/indstillinger");
   await page.getByLabel(/Booking og biler/).check();
   await page.getByRole("button", { name: "Gem moduler" }).click();
+  await expect(page.getByRole("status")).toContainText("Modulerne er gemt");
 
   await page.goto("/indstillinger/booking");
   const add = page.locator("form", { hasText: "Ny ydelse" });

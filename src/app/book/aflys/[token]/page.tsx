@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { BrandHeader } from "@/components/brand-header";
+import { brandStyle, getBranding } from "@/lib/branding";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand";
@@ -35,10 +37,15 @@ export default async function CancelBookingPage({ params }: PageProps<"/book/afl
   const cancelHours = row.cancelHours ?? 24;
   const canCancel = canCustomerCancel(booking, cancelHours);
 
+  const brand = await getBranding(booking.workspaceId);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main
+      style={brandStyle(brand.color)}
+      className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12"
+    >
       <div className="w-full max-w-md space-y-6">
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <BrandHeader brand={brand} className="mb-4" />
           <h1 className="text-lg font-semibold text-slate-900">Din booking hos {ws.name}</h1>
           <dl className="mt-4 space-y-1 text-sm text-slate-700">
             <div>

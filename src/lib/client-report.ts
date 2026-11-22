@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { formatMonth, monthRange, shiftMonth } from "./duration";
 import { brandedEmail, isEmailConfigured, sendEmail } from "./email";
+import { emailBrand } from "./branding";
 import { localDate } from "./time";
 import { getCompanyRetainer } from "./time-tracking";
 import { getAppUrl } from "./url";
@@ -160,7 +161,7 @@ export async function sendClientReport(workspaceId: string, companyId: string, m
     to,
     subject: `Månedsrapport for ${formatMonth(month)} fra ${row.wsName}`,
     ...brandedEmail({
-      sender: row.wsName,
+      ...(await emailBrand(workspaceId)),
       heading: `Månedsrapport for ${formatMonth(month)}`,
       paragraphs: [
         `Hej ${row.company.name}`,

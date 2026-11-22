@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { BrandHeader } from "@/components/brand-header";
+import { brandStyle, getBranding } from "@/lib/branding";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand";
@@ -36,11 +38,13 @@ export default async function ClientReportPage({ params, searchParams }: PagePro
   const r = await buildClientReport(company.workspaceId, company.id, month);
   const cpl = r.ads && r.ads.leads > 0 ? r.ads.spend / r.ads.leads : null;
 
+  const brand = await getBranding(company.workspaceId);
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white">
+    <main style={brandStyle(brand.color)} className="min-h-screen bg-slate-50 px-4 py-8 print:bg-white">
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div>
+            <BrandHeader brand={brand} className="mb-3" />
             <p className="text-sm text-slate-500">{workspaceName}</p>
             <h1 className="font-display text-2xl font-bold text-slate-900">Månedsrapport for {company.name}</h1>
             <p className="text-slate-600 capitalize">{formatMonth(month)}</p>
