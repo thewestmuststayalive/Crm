@@ -151,6 +151,9 @@ export function MobileNav({
             </ul>
             <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
               <span className="truncate text-slate-600">{userName}</span>
+              <Link href="/telefon" className="text-slate-600 underline" onClick={() => setMore(false)}>
+                Læg på hjemmeskærm
+              </Link>
               <form action={logout}>
                 <button className="text-slate-600 underline">Log ud</button>
               </form>

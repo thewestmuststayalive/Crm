@@ -94,9 +94,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {user.email} · {ROLE_LABELS[workspace.role]}
             </p>
           </div>
-          <form action={logout} className="md:mt-2">
-            <button className="text-brand-200 underline hover:text-white">Log ud</button>
-          </form>
+          <div className="flex items-center gap-3 md:mt-2">
+            <Link href="/telefon" className="text-brand-200 underline hover:text-white">
+              Brug på telefonen
+            </Link>
+            <form action={logout}>
+              <button className="text-brand-200 underline hover:text-white">Log ud</button>
+            </form>
+          </div>
         </div>
       </aside>
       <main className="min-w-0 flex-1 p-4 pb-24 md:p-8">{children}</main>
