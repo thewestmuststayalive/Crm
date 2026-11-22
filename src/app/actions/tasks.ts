@@ -8,6 +8,8 @@ import { requireWorkspace } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { getCompany, getContact, getDeal, isMemberOf } from "@/lib/crm";
 import { getProject } from "@/lib/projects";
+import { todayIso } from "@/lib/labels";
+import { addDays } from "@/lib/time";
 import { hasRole } from "@/lib/roles";
 import { isUuid, optionalId } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
@@ -102,5 +104,20 @@ export async function deleteTask(formData: FormData) {
   const allowed = hasRole(workspace.role, "ADMIN") || task.createdById === user.id || task.assigneeId === user.id;
   if (!allowed) return;
   await db.delete(schema.tasks).where(eq(schema.tasks.id, task.id));
+  revalidatePath("/", "layout");
+}
+
+/** Udsætter en opgave et antal dage (fra i dag, hvis fristen er overskredet). */
+export async function postponeTask(formData: FormData) {
+  const { workspace } = await requireWorkspace();
+  const task = await getTask(workspace.id, formData.get("id"));
+  const days = Number(formData.get("days"));
+  if (!task || task.completedAt || ![1, 7].includes(days)) return;
+  const today = todayIso();
+  const base = task.dueDate && task.dueDate > today ? task.dueDate : today;
+  await db
+    .update(schema.tasks)
+    .set({ dueDate: addDays(base, days) })
+    .where(eq(schema.tasks.id, task.id));
   revalidatePath("/", "layout");
 }

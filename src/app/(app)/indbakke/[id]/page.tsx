@@ -8,6 +8,7 @@ import { cx } from "@/components/styles";
 import { Button, Select } from "@/components/ui";
 import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
+import { getSavedReplies } from "@/lib/saved-replies";
 import { getContactOptions } from "@/lib/crm";
 import { formatDateTime } from "@/lib/labels";
 import { isReplyWindowOpen } from "@/lib/meta/inbox";
@@ -37,7 +38,7 @@ export default async function ConversationPage({ params }: PageProps<"/indbakke/
   if (!conversation) notFound();
   const c = conversation.c;
 
-  const [messages, contacts] = await Promise.all([
+  const [messages, contacts, replies] = await Promise.all([
     db
       .select({
         id: schema.messages.id,
@@ -53,6 +54,7 @@ export default async function ConversationPage({ params }: PageProps<"/indbakke/
       .orderBy(asc(schema.messages.sentAt))
       .limit(500),
     c.contactId ? Promise.resolve([]) : getContactOptions(workspace.id),
+    getSavedReplies(workspace.id),
   ]);
 
   const disabledReason = isReplyWindowOpen(c.lastInboundAt)
@@ -114,43 +116,54 @@ export default async function ConversationPage({ params }: PageProps<"/indbakke/
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
-      <ol className="space-y-2" aria-label="Beskeder">
-        {messages.map((m) => {
-          const out = m.direction === "OUT";
-          const attachments = (m.attachments as Attachment[] | null) ?? [];
-          return (
-            <li key={m.id} className={cx("flex", out ? "justify-end" : "justify-start")}>
-              <div
-                className={cx(
-                  "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
-                  out ? "bg-brand-700 text-white" : "bg-white text-slate-900",
-                )}
-              >
-                {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
-                {attachments.map((a, i) =>
-                  a.payload?.url && /^https:\/\//.test(a.payload.url) ? (
-                    <a key={i} href={a.payload.url} target="_blank" rel="noopener noreferrer" className="block underline">
-                      Åbn vedhæftning ({a.type ?? "fil"})
-                    </a>
-                  ) : (
-                    <span key={i} className="block italic">
-                      [{a.type ?? "vedhæftning"}]
-                    </span>
-                  ),
-                )}
-                <p className={cx("mt-1 text-[10px]", out ? "text-slate-300" : "text-slate-400")}>
-                  {formatDateTime(m.sentAt)}
-                  {out && m.sentByName && ` · ${m.sentByName}`}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      <ScrollToBottom count={messages.length} />
+        <ol className="space-y-2" aria-label="Beskeder">
+          {messages.map((m) => {
+            const out = m.direction === "OUT";
+            const attachments = (m.attachments as Attachment[] | null) ?? [];
+            return (
+              <li key={m.id} className={cx("flex", out ? "justify-end" : "justify-start")}>
+                <div
+                  className={cx(
+                    "max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm",
+                    out ? "bg-brand-700 text-white" : "bg-white text-slate-900",
+                  )}
+                >
+                  {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                  {attachments.map((a, i) =>
+                    a.payload?.url && /^https:\/\//.test(a.payload.url) ? (
+                      <a
+                        key={i}
+                        href={a.payload.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block underline"
+                      >
+                        Åbn vedhæftning ({a.type ?? "fil"})
+                      </a>
+                    ) : (
+                      <span key={i} className="block italic">
+                        [{a.type ?? "vedhæftning"}]
+                      </span>
+                    ),
+                  )}
+                  <p className={cx("mt-1 text-[10px]", out ? "text-slate-300" : "text-slate-400")}>
+                    {formatDateTime(m.sentAt)}
+                    {out && m.sentByName && ` · ${m.sentByName}`}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <ScrollToBottom count={messages.length} />
       </div>
 
-      <ReplyForm id={c.id} disabledReason={disabledReason} />
+      <ReplyForm
+        id={c.id}
+        disabledReason={disabledReason}
+        replies={replies.map((r) => ({ id: r.id, title: r.title, body: r.body }))}
+        vars={{ navn: (conversation.contactName ?? c.name ?? "").split(" ")[0] ?? "", firma: workspace.name }}
+      />
     </div>
   );
 }

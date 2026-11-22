@@ -20,8 +20,29 @@ export function ScrollToBottom({ count }: { count: number }) {
   return <div ref={ref} />;
 }
 
-export function ReplyForm({ id, disabledReason }: { id: string; disabledReason: string | null }) {
+type SavedReply = { id: string; title: string; body: string };
+
+export function ReplyForm({
+  id,
+  disabledReason,
+  replies = [],
+  vars = {},
+}: {
+  id: string;
+  disabledReason: string | null;
+  replies?: SavedReply[];
+  vars?: Record<string, string>;
+}) {
   const [state, action] = useActionState(replyToConversation.bind(null, id), {});
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const insert = (reply: SavedReply) => {
+    const el = textRef.current;
+    if (!el) return;
+    const text = reply.body.replace(/\{([a-zæøå]+)\}/gi, (whole, key: string) => vars[key.toLowerCase()] || whole);
+    el.value = el.value.trim() ? `${el.value.trimEnd()}\n\n${text}` : text;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
   if (disabledReason) {
     return <p className="border-t border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">{disabledReason}</p>;
   }
@@ -30,7 +51,22 @@ export function ReplyForm({ id, disabledReason }: { id: string; disabledReason: 
       <label htmlFor="reply" className="sr-only">
         Svar
       </label>
+      {replies.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Svarskabeloner">
+          {replies.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => insert(r)}
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 hover:border-brand-300 hover:bg-brand-50"
+            >
+              {r.title}
+            </button>
+          ))}
+        </div>
+      )}
       <Textarea
+        ref={textRef}
         id="reply"
         name="text"
         rows={2}

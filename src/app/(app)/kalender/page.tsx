@@ -173,6 +173,16 @@ export default async function CalendarPage({ searchParams }: PageProps<"/kalende
                   style={{ top: ((h - startMin) / 60) * HOUR_PX }}
                 />
               ))}
+              {hours.map((h) => (
+                <Link
+                  key={`slot-${h}`}
+                  href={`/kalender/ny?dato=${d}&tid=${minutesToTime(h)}`}
+                  className="absolute inset-x-0 block hover:bg-brand-50/70"
+                  style={{ top: ((h - startMin) / 60) * HOUR_PX, height: HOUR_PX }}
+                  aria-label={`Ny booking ${formatLongDate(d)} kl. ${minutesToTime(h)}`}
+                  title={`Ny booking kl. ${minutesToTime(h)}`}
+                />
+              ))}
               {lanes(byDay(d)).map(({ b, lane, lanes: n }) => {
                 const top = ((localMinutes(b.startsAt) - startMin) / 60) * HOUR_PX;
                 const sameDay = localDate(b.endsAt) === d;
@@ -181,7 +191,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/kalende
                 return (
                   <div
                     key={b.id}
-                    className="absolute p-0.5"
+                    className="absolute z-10 p-0.5"
                     style={{ top, height: h, left: `${(lane / n) * 100}%`, width: `${100 / n}%` }}
                   >
                     <BookingCard b={b} compact={h < 50} />

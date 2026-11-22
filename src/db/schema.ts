@@ -951,3 +951,19 @@ export const auditLog = pgTable(
   },
   (t) => [index("audit_log_workspace_idx").on(t.workspaceId, t.createdAt)],
 );
+
+/** Svarskabeloner til indbakken (Messenger/Instagram). */
+export const savedReplies = pgTable(
+  "saved_replies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("saved_replies_workspace_idx").on(t.workspaceId, t.position)],
+);
