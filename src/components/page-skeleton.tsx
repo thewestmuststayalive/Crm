@@ -1,5 +1,5 @@
 /** Vises med det samme, mens en side hentes – så appen føles hurtig. */
-export default function Loading() {
+export function PageSkeleton() {
   return (
     <div className="mx-auto max-w-5xl animate-pulse space-y-6" aria-busy="true" aria-label="Indlæser">
       <div className="h-8 w-56 rounded-md bg-slate-200" />

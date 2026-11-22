@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
 const items: { href: string; label: string; also?: string[]; module?: "booking" | "agency" }[] = [
@@ -16,6 +16,17 @@ const items: { href: string; label: string; also?: string[]; module?: "booking" 
   { href: "/annoncer", label: "Annoncer" },
   { href: "/indstillinger", label: "Indstillinger" },
 ];
+
+/** Lille prik, der pulserer, mens siden for et menupunkt hentes. */
+function Pending() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={`h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400 transition-opacity ${pending ? "animate-pulse opacity-100" : "opacity-0"}`}
+    />
+  );
+}
 
 /** Hovedmenuen. `badges` viser fx antal ulæste beskeder ud for et menupunkt. */
 export function Nav({
@@ -43,7 +54,10 @@ export function Nav({
                 active ? "bg-white/12 text-white" : "text-brand-100/80 hover:bg-white/6 hover:text-white"
               }`}
             >
-              {item.label}
+              <span className="flex items-center gap-2">
+                {item.label}
+                <Pending />
+              </span>
               {badge > 0 && (
                 <span
                   className="rounded-full bg-accent-400 px-1.5 text-[10px] font-semibold text-brand-950"

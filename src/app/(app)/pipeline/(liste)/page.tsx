@@ -8,7 +8,7 @@ import { requireWorkspace } from "@/lib/auth";
 import { formatKr } from "@/lib/labels";
 import { getPipelines } from "@/lib/pipelines";
 import { hasRole } from "@/lib/roles";
-import { Kanban } from "./kanban";
+import { Kanban } from "../kanban";
 
 export const metadata: Metadata = { title: "Pipeline" };
 
