@@ -8,7 +8,7 @@ import { formatIsoDate, todayIso } from "@/lib/labels";
 import { requireAgencyModule } from "@/lib/modules";
 import { getProjects, getTemplates, type ProjectRow } from "@/lib/projects";
 import { isUuid } from "@/lib/validation";
-import { NewProjectForm, ProjectTabs } from "../project-forms";
+import { NewProjectForm, ProjectTabs } from "./project-forms";
 
 export const metadata: Metadata = { title: "Projekter" };
 

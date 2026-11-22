@@ -6,7 +6,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { getMemberships, requireRole, requireUser, WORKSPACE_COOKIE } from "@/lib/auth";
+import { getMemberships, requireRole, requireUser, requireWorkspace, WORKSPACE_COOKIE } from "@/lib/auth";
+import { onboardingCookie } from "@/lib/onboarding";
 import { EMAIL_TEXTS, isHexColor, LOGO_MAX_BYTES, LOGO_TYPES } from "@/lib/branding";
 import { createDefaultPipeline } from "@/lib/pipelines";
 import type { ActionState } from "./types";
@@ -136,4 +137,16 @@ export async function saveEmailTexts(_prev: ActionState, formData: FormData): Pr
   await db.update(schema.workspaces).set({ emailTexts: texts }).where(eq(schema.workspaces.id, workspace.id));
   revalidatePath("/indstillinger/e-mails");
   return { success: "Teksterne er gemt." };
+}
+
+/** Skjuler "Kom godt i gang" på dashboardet for dette firma (på denne enhed). */
+export async function hideOnboarding() {
+  const { workspace } = await requireWorkspace();
+  (await cookies()).set(onboardingCookie(workspace.id), "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/dashboard");
 }

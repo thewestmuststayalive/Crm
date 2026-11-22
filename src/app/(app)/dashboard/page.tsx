@@ -8,6 +8,9 @@ import { requireWorkspace } from "@/lib/auth";
 import { BOOKING_STATUS_LABELS, formatPlate, getTodaysBookings } from "@/lib/booking";
 import { getDashboard } from "@/lib/dashboard";
 import { getModules } from "@/lib/modules";
+import { getOnboarding, onboardingCookie } from "@/lib/onboarding";
+import { hideOnboarding } from "@/app/actions/workspace";
+import { cookies } from "next/headers";
 import { UsageBar } from "../tid/time-components";
 import { currentMonth, formatHM, formatMonth } from "@/lib/duration";
 import { getRetainerOverview } from "@/lib/time-tracking";
@@ -57,6 +60,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const modules = all ? { booking: false, agency: false } : await getModules(workspace.id);
   const showBookings = modules.booking;
   const month = currentMonth();
+  const hidden = all || (await cookies()).get(onboardingCookie(workspace.id))?.value === "1";
+  const steps = hidden ? [] : await getOnboarding(workspace.id);
+  const stepsDone = steps.filter((st) => st.done).length;
+  const showOnboarding = steps.length > 0 && stepsDone < steps.length;
   const retainers = modules.agency ? (await getRetainerOverview(workspace.id, month, true)).slice(0, 6) : [];
   const bookingsToday = showBookings ? await getTodaysBookings(workspace.id) : [];
   const today = todayIso();
@@ -88,6 +95,57 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Du har ikke adgang til den side i dette firma.
         </p>
+      )}
+
+      {showOnboarding && (
+        <section
+          aria-label="Kom godt i gang"
+          className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Kom godt i gang</h2>
+              <p className="text-sm text-slate-600">
+                {stepsDone} af {steps.length} klaret – så får du mest ud af Kundespor.
+              </p>
+            </div>
+            <form action={hideOnboarding}>
+              <button className="text-xs text-slate-500 underline hover:text-slate-800">Skjul</button>
+            </form>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+            <div
+              className="h-full bg-brand-600"
+              style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }}
+            />
+          </div>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {steps.map((st) => (
+              <li key={st.key}>
+                <Link
+                  href={st.href}
+                  className={cx(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                    st.done
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-brand-300",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cx(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]",
+                      st.done ? "bg-emerald-600 text-white" : "border border-slate-300",
+                    )}
+                  >
+                    {st.done ? "✓" : ""}
+                  </span>
+                  <span className={st.done ? "line-through" : ""}>{st.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

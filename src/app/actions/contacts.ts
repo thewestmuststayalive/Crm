@@ -1,15 +1,17 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { contactStatusEnum, leadSourceEnum } from "@/db/schema";
+import { contactStatusEnum, leadSourceEnum, type ContactStatus } from "@/db/schema";
 import { respondToContact } from "@/lib/awaiting";
 import { requireRole, requireWorkspace } from "@/lib/auth";
 import { getCompany, getContact, isMemberOf } from "@/lib/crm";
 import { getCustomFields, parseCustomValues } from "@/lib/custom-fields";
+import { STATUS_LABELS } from "@/lib/labels";
+import { hasRole } from "@/lib/roles";
 import { isUuid, optionalEmail, optionalId, optionalText } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
 
@@ -104,4 +106,51 @@ export async function deleteContact(formData: FormData) {
     .where(and(eq(schema.contacts.workspaceId, workspace.id), eq(schema.contacts.id, id)));
   revalidatePath("/kunder");
   redirect("/kunder");
+}
+
+/**
+ * Masse-handling på valgte kontakter: skift status, skift ansvarlig eller slet (kun administratorer).
+ * Kun kontakter i det aktive firma påvirkes.
+ */
+export async function bulkContacts(formData: FormData) {
+  const { user, workspace } = await requireWorkspace();
+  const ids = formData.getAll("ids").filter(isUuid).slice(0, 500);
+  const op = String(formData.get("op") ?? "");
+  const back = String(formData.get("back") ?? "/kunder");
+  const backPath = back.startsWith("/kunder") ? back : "/kunder";
+  const done = (message: string): never => {
+    revalidatePath("/kunder");
+    const sep = backPath.includes("?") ? "&" : "?";
+    redirect(`${backPath}${sep}besked=${encodeURIComponent(message)}`);
+  };
+  if (ids.length === 0) done("Vælg mindst én kontakt.");
+  const scope = and(eq(schema.contacts.workspaceId, workspace.id), inArray(schema.contacts.id, ids));
+  const n = (count: number) => `${count} ${count === 1 ? "kontakt" : "kontakter"}`;
+
+  const statusMatch = /^status:(LEAD|CUSTOMER|INACTIVE)$/.exec(op);
+  if (statusMatch) {
+    const status = statusMatch[1] as ContactStatus;
+    const rows = await db
+      .update(schema.contacts)
+      .set({ status, updatedAt: new Date() })
+      .where(scope)
+      .returning({ id: schema.contacts.id });
+    done(`${n(rows.length)} har fået status ${STATUS_LABELS[status]}.`);
+  }
+  if (op.startsWith("owner:")) {
+    const ownerId = op.slice(6) === "mig" ? user.id : op.slice(6);
+    if (ownerId !== "ingen" && !(isUuid(ownerId) && (await isMemberOf(workspace.id, ownerId)))) done("Ukendt person.");
+    const rows = await db
+      .update(schema.contacts)
+      .set({ ownerId: ownerId === "ingen" ? null : ownerId, updatedAt: new Date() })
+      .where(scope)
+      .returning({ id: schema.contacts.id });
+    done(`${n(rows.length)} har fået ny ansvarlig.`);
+  }
+  if (op === "delete") {
+    if (!hasRole(workspace.role, "ADMIN")) done("Kun administratorer kan slette kontakter.");
+    const rows = await db.delete(schema.contacts).where(scope).returning({ id: schema.contacts.id });
+    done(`${n(rows.length)} er slettet.`);
+  }
+  done("Vælg hvad der skal ske med de valgte kontakter.");
 }

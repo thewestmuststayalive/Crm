@@ -50,14 +50,20 @@ export function CommandPalette({ modules }: { modules: Modules }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const typing =
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
         e.preventDefault();
         setOpen(true);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("kundespor:search", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("kundespor:search", onOpen);
+    };
   }, []);
 
   useEffect(() => {
@@ -117,7 +123,12 @@ export function CommandPalette({ modules }: { modules: Modules }) {
           className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 px-4 pt-[12vh]"
           onMouseDown={(e) => e.target === e.currentTarget && close()}
         >
-          <div role="dialog" aria-modal="true" aria-label="Søg" className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Søg"
+            className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-2xl"
+          >
             <input
               ref={inputRef}
               value={query}

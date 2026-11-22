@@ -1,5 +1,6 @@
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
+import { Suspense } from "react";
 import { logout } from "@/app/actions/auth";
 import { Logo } from "@/components/brand";
 import { NotificationPoller } from "@/components/notification-poller";
@@ -11,6 +12,8 @@ import { getModules } from "@/lib/modules";
 import { getRunningTimer } from "@/lib/time-tracking";
 import { countWaiting } from "@/lib/waiting";
 import { CommandPalette } from "./command-palette";
+import { MobileNav } from "./mobile-nav";
+import { NavigationProgress } from "./navigation-progress";
 import { QuickCreate } from "./quick-create";
 import { TimerBadge } from "./timer-badge";
 import { Nav } from "./nav";
@@ -32,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     modules.booking ? countBookingsToday(workspace.id) : 0,
   ]);
   const running = modules.agency ? await getRunningTimer(workspace.id, user.id) : null;
+  const badges = { "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday };
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -75,15 +79,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <QuickCreate modules={modules} />
           </div>
         </div>
-        <Nav
-          badges={{ "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday }}
-          modules={modules}
-        />
+        <div className="hidden md:block">
+          <Nav badges={badges} modules={modules} />
+        </div>
         {running?.startedAt && (
           <TimerBadge startedAt={running.startedAt.toISOString()} label={running.companyName ?? "Intern tid"} />
         )}
         <NotificationPoller initialUnread={notes} />
-        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
+        <div className="hidden items-center justify-between gap-3 border-t border-white/10 px-4 py-2 text-sm md:mt-auto md:block md:py-4">
           <div className="min-w-0">
             <p className="truncate font-medium text-white">{user.name}</p>
             <p className="hidden truncate text-brand-200/80 md:block">
@@ -95,7 +98,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 pb-24 md:p-8">{children}</main>
+      <MobileNav modules={modules} badges={badges} userName={user.name} logout={logout} />
+      <Suspense>
+        <NavigationProgress />
+      </Suspense>
     </div>
   );
 }
