@@ -7,6 +7,7 @@ import { db, schema } from "@/db";
 import { requireWorkspace } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { getCompany, getContact, getDeal, isMemberOf } from "@/lib/crm";
+import { getProject } from "@/lib/projects";
 import { hasRole } from "@/lib/roles";
 import { isUuid, optionalId } from "@/lib/validation";
 import { pickValues, type ActionState } from "./types";
@@ -23,6 +24,7 @@ const taskSchema = z.object({
   contactId: optionalId,
   companyId: optionalId,
   dealId: optionalId,
+  projectId: optionalId,
 });
 
 export async function createTask(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -38,6 +40,7 @@ export async function createTask(_prev: ActionState, formData: FormData): Promis
   if (data.contactId && !(await getContact(workspace.id, data.contactId))) return { error: "Kontakten findes ikke" };
   if (data.companyId && !(await getCompany(workspace.id, data.companyId))) return { error: "Virksomheden findes ikke" };
   if (data.dealId && !(await getDeal(workspace.id, data.dealId))) return { error: "Dealen findes ikke" };
+  if (data.projectId && !(await getProject(workspace.id, data.projectId))) return { error: "Projektet findes ikke" };
 
   const assigneeId = data.assigneeId ?? user.id;
   await db.insert(schema.tasks).values({
@@ -47,7 +50,7 @@ export async function createTask(_prev: ActionState, formData: FormData): Promis
     createdById: user.id,
   });
   if (assigneeId !== user.id) {
-    const href = data.dealId ? `/pipeline/${data.dealId}` : data.contactId ? `/kunder/${data.contactId}` : data.companyId ? `/virksomheder/${data.companyId}` : "/opgaver";
+    const href = data.projectId ? `/projekter/${data.projectId}` : data.dealId ? `/pipeline/${data.dealId}` : data.contactId ? `/kunder/${data.contactId}` : data.companyId ? `/virksomheder/${data.companyId}` : "/opgaver";
     await notify({
       workspaceId: workspace.id,
       to: { userIds: [assigneeId] },

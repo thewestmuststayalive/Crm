@@ -17,7 +17,7 @@ test("tid og retainers: stopur, registrering, advarsel ved 80 % og 100 %, ekspor
   await createWorkspace(page, `Bureau ${id}`);
 
   await page.goto("/indstillinger");
-  await page.getByLabel(/Tid og retainers/).check();
+  await page.getByLabel(/Tid og projekter/).check();
   await page.getByRole("button", { name: "Gem moduler" }).click();
   await expect(page.getByRole("status")).toContainText("Modulerne er gemt");
   await expect(page.getByRole("link", { name: "Tid", exact: true })).toBeVisible();

@@ -10,6 +10,7 @@ const items: { href: string; label: string; also?: string[]; module?: "booking" 
   { href: "/pipeline", label: "Pipeline" },
   { href: "/kalender", label: "Kalender", also: ["/biler"], module: "booking" },
   { href: "/opgaver", label: "Opgaver" },
+  { href: "/projekter", label: "Projekter", module: "agency" },
   { href: "/tid", label: "Tid", module: "agency" },
   { href: "/indbakke", label: "Indbakke" },
   { href: "/annoncer", label: "Annoncer" },

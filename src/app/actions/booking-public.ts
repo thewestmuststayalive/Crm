@@ -163,3 +163,32 @@ export async function cancelBookingByCustomer(_prev: ActionState, formData: Form
   });
   return { success: "Din tid er aflyst." };
 }
+
+/** Afmelding fra påmindelser via linket i e-mailen (bookingens token). */
+export async function unsubscribeByBookingToken(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const token = String(formData.get("token") ?? "");
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return { error: "Linket er ikke gyldigt." };
+  const [booking] = await db
+    .select({ workspaceId: schema.bookings.workspaceId, contactId: schema.bookings.contactId })
+    .from(schema.bookings)
+    .where(eq(schema.bookings.token, token))
+    .limit(1);
+  if (!booking) return { error: "Linket er ikke gyldigt." };
+  const [updated] = await db
+    .update(schema.contacts)
+    .set({ emailOptOutAt: new Date() })
+    .where(
+      and(
+        eq(schema.contacts.workspaceId, booking.workspaceId),
+        eq(schema.contacts.id, booking.contactId),
+        sql`${schema.contacts.emailOptOutAt} is null`,
+      ),
+    )
+    .returning({ id: schema.contacts.id });
+  if (updated) {
+    await logEvent(booking.workspaceId, null, "Kontakten har frabedt sig e-mails via afmeldingslinket", {
+      contactId: booking.contactId,
+    });
+  }
+  return { success: "Du er afmeldt og får ikke flere påmindelser fra os." };
+}

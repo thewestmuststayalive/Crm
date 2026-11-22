@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db, schema } from "@/db";
 import { requireRole } from "@/lib/auth";
-import { isMemberOf } from "@/lib/crm";
+import { getCompany, isMemberOf } from "@/lib/crm";
 import { encrypt } from "@/lib/crypto";
 import { graph, graphGetAll } from "@/lib/meta/graph";
 import { importConversations } from "@/lib/meta/inbox";
@@ -202,4 +202,18 @@ export async function disconnectMeta() {
   await db.delete(schema.adInsights).where(eq(schema.adInsights.workspaceId, workspace.id));
   await db.delete(schema.metaConnections).where(eq(schema.metaConnections.workspaceId, workspace.id));
   done("Facebook er frakoblet. Samtaler fra de frakoblede sider er slettet fra Kundespor.");
+}
+
+/** Knytter en annoncekonto til en kunde, så forbruget kommer med i kundens månedsrapport. */
+export async function setAdAccountCompany(formData: FormData) {
+  const { workspace } = await requireRole("ADMIN");
+  const id = String(formData.get("id") ?? "");
+  if (!isUuid(id)) return;
+  const raw = formData.get("companyId");
+  const company = isUuid(raw) ? await getCompany(workspace.id, raw) : null;
+  await db
+    .update(schema.metaAdAccounts)
+    .set({ companyId: company?.id ?? null })
+    .where(and(eq(schema.metaAdAccounts.workspaceId, workspace.id), eq(schema.metaAdAccounts.id, id)));
+  done(company ? `Annoncekontoen hører nu til ${company.name}.` : "Annoncekontoen er ikke længere knyttet til en kunde.");
 }

@@ -17,10 +17,15 @@ import { UsageBar } from "@/app/(app)/tid/time-components";
 import { currentMonth, formatHM, formatMonth, monthRange } from "@/lib/duration";
 import { getModules } from "@/lib/modules";
 import { getCompanyRetainer, getEntries } from "@/lib/time-tracking";
+import { getProjects } from "@/lib/projects";
+import { ensureReportToken } from "@/lib/client-report";
+import { shiftMonth } from "@/lib/duration";
+import { hasRole } from "@/lib/roles";
+import { getAppUrl } from "@/lib/url";
+import { ReportControls } from "./report-card";
 import { TaskForm } from "@/components/task-form";
 import { TaskList } from "@/components/task-list";
 import { getCompany, getDealsFor, getMemberOptions, getTasks, getTimeline, getUserName } from "@/lib/crm";
-import { hasRole } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Virksomhed" };
 
@@ -52,13 +57,16 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
   ]);
   const agency = (await getModules(workspace.id)).agency;
   const month = currentMonth();
-  const [timeline, deals, tasks, members, retainer, monthEntries] = await Promise.all([
+  const reportToken = agency ? await ensureReportToken(workspace.id, company.id) : null;
+  const appUrl = agency ? await getAppUrl() : "";
+  const [timeline, deals, tasks, members, retainer, monthEntries, projects] = await Promise.all([
     getTimeline(workspace.id, { companyId: company.id, contactIds: contacts.map((c) => c.id) }),
     getDealsFor(workspace.id, { companyId: company.id }),
     getTasks(workspace.id, { companyId: company.id }),
     getMemberOptions(workspace.id),
     agency ? getCompanyRetainer(workspace.id, company.id, month) : null,
     agency ? getEntries(workspace.id, monthRange(month).first, monthRange(month).last, { companyId: company.id }) : [],
+    agency ? getProjects(workspace.id, { companyId: company.id }) : [],
   ]);
 
   return (
@@ -164,6 +172,53 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
               <Link href="/tid/retainers" className="mt-3 inline-block text-sm text-brand-800 underline">
                 Retainers
               </Link>
+            </Card>
+          )}
+          {agency && (
+            <Card title="Projekter">
+              {projects.length > 0 && (
+                <ul className="mb-3 divide-y divide-slate-100" aria-label="Projekter">
+                  {projects.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={`/projekter/${p.id}`}
+                        className="flex justify-between gap-3 py-2 text-sm hover:bg-slate-50"
+                      >
+                        <span
+                          className={p.status === "DONE" ? "text-slate-400 line-through" : "font-medium text-slate-900"}
+                        >
+                          {p.name}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {p.done}/{p.total}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link href={`/projekter?kunde=${company.id}`} className="text-sm text-brand-800 underline">
+                Nyt projekt
+              </Link>
+            </Card>
+          )}
+          {agency && reportToken && (
+            <Card
+              title="Månedsrapport"
+              description="Tid, retainer, annoncer og udførte opgaver – som et link til kunden."
+            >
+              <ReportControls
+                companyId={company.id}
+                link={`${appUrl}/rapport/${reportToken}`}
+                lastMonth={shiftMonth(month, -1)}
+                lastMonthLabel={formatMonth(shiftMonth(month, -1))}
+                isAdmin={hasRole(workspace.role, "ADMIN")}
+                initial={{
+                  enabled: company.reportEnabled,
+                  email: company.reportEmail ?? "",
+                  fallbackEmail: company.email,
+                }}
+              />
             </Card>
           )}
           <DealsCard deals={deals} newHref={`/pipeline/ny?virksomhed=${company.id}`} />

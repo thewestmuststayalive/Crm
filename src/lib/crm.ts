@@ -177,6 +177,7 @@ export async function getTasks(
     contactId?: string;
     companyId?: string;
     dealId?: string;
+    projectId?: string;
     assigneeId?: string;
     open?: boolean;
     limit?: number;
@@ -186,6 +187,7 @@ export async function getTasks(
   if (filter.contactId) conditions.push(eq(schema.tasks.contactId, filter.contactId));
   if (filter.companyId) conditions.push(eq(schema.tasks.companyId, filter.companyId));
   if (filter.dealId) conditions.push(eq(schema.tasks.dealId, filter.dealId));
+  if (filter.projectId) conditions.push(eq(schema.tasks.projectId, filter.projectId));
   if (filter.assigneeId) conditions.push(eq(schema.tasks.assigneeId, filter.assigneeId));
   if (filter.open === true) conditions.push(isNull(schema.tasks.completedAt));
   if (filter.open === false) conditions.push(isNotNull(schema.tasks.completedAt));

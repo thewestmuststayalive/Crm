@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -134,6 +135,12 @@ export const companies = pgTable(
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
     /** Værdier for firmaets egne felter, nøglet på felt-id. */
     custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
+    /** Hemmeligt id i linket til kundens månedsrapport. */
+    reportToken: text("report_token").unique(),
+    /** Send månedsrapporten automatisk den 1. til denne e-mail. */
+    reportEnabled: boolean("report_enabled").notNull().default(false),
+    reportEmail: text("report_email"),
+    reportLastSentMonth: text("report_last_sent_month"),
     ...timestamps,
   },
   (t) => [index("companies_workspace_name_idx").on(t.workspaceId, t.name)],
@@ -256,6 +263,7 @@ export const tasks = pgTable(
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
     companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references((): AnyPgColumn => projects.id, { onDelete: "cascade" }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -377,6 +385,8 @@ export const metaAdAccounts = pgTable(
     adAccountId: text("ad_account_id").notNull().unique(),
     name: text("name").notNull(),
     currency: text("currency").notNull().default("DKK"),
+    /** Kunden (virksomheden) annoncekontoen hører til – bruges i månedsrapporten. */
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -808,6 +818,8 @@ export const bookings = pgTable(
     token: text("token").notNull().unique(),
     ipHash: text("ip_hash"),
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    /** Sat når kunden er mindet om en ny behandling (ydelsens påmindelsesinterval). */
+    serviceReminderSentAt: timestamp("service_reminder_sent_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
     ...timestamps,
@@ -874,4 +886,43 @@ export const retainers = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex("retainers_company_idx").on(t.workspaceId, t.companyId)],
+);
+
+export const projectStatusEnum = pgEnum("project_status", ["ACTIVE", "DONE"]);
+
+/** Et projekt for en kunde (fx "Ny hjemmeside"). Opgaverne ligger i tasks med projectId. */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: projectStatusEnum("status").notNull().default("ACTIVE"),
+    startDate: date("start_date"),
+    dueDate: date("due_date"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("projects_workspace_idx").on(t.workspaceId, t.status)],
+);
+
+export type TemplateItem = { title: string; offsetDays: number };
+
+/** Skabelon med faste opgaver, fx "Onboarding af ny kunde". */
+export const projectTemplates = pgTable(
+  "project_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    items: jsonb("items").$type<TemplateItem[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("project_templates_workspace_idx").on(t.workspaceId)],
 );

@@ -59,7 +59,7 @@ export default async function WorkspaceSettingsPage({ searchParams }: PageProps<
             <label className="flex items-start gap-2 text-sm text-slate-800">
               <input type="checkbox" name="agency" defaultChecked={modules.agency} className="mt-0.5 h-4 w-4" />
               <span>
-                <strong>Tid og retainers</strong> – tidsregistrering med stopur, retainers med timebudget og advarsel
+                <strong>Tid og projekter</strong> – projekter med skabeloner, tidsregistrering med stopur, retainers med timebudget og advarsel
                 ved 80 % og 100 % (fx bureauer)
               </span>
             </label>
@@ -69,7 +69,7 @@ export default async function WorkspaceSettingsPage({ searchParams }: PageProps<
           </form>
         ) : (
           <p className="text-sm text-slate-700">
-            {[modules.booking && "Booking og biler", modules.agency && "Tid og retainers"].filter(Boolean).join(", ") ||
+            {[modules.booking && "Booking og biler", modules.agency && "Tid og projekter"].filter(Boolean).join(", ") ||
               "Ingen moduler slået til"}
           </p>
         )}

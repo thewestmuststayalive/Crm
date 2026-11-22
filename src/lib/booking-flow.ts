@@ -213,3 +213,83 @@ export async function changeBookingStatus(
     contactId: booking.contactId,
   });
 }
+
+/**
+ * Daglig kørsel: påmind kunder om en ny behandling, når ydelsens interval er gået
+ * (fx coating efter 12 måneder). Kun seneste gennemførte booking, kun kunder der ikke har
+ * booket igen, og kun påmindelser der er forfaldne inden for de seneste 60 dage.
+ */
+export async function sendServiceReminders(now = new Date()) {
+  if (!isEmailConfigured()) return 0;
+  const due = await db
+    .select({
+      booking: schema.bookings,
+      months: schema.services.reminderMonths,
+      contactName: schema.contacts.name,
+      email: schema.contacts.email,
+      plate: schema.vehicles.plate,
+      wsName: schema.workspaces.name,
+      key: schema.bookingSettings.key,
+    })
+    .from(schema.bookings)
+    .innerJoin(schema.services, eq(schema.services.id, schema.bookings.serviceId))
+    .innerJoin(schema.contacts, eq(schema.contacts.id, schema.bookings.contactId))
+    .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.bookings.workspaceId))
+    .innerJoin(schema.bookingSettings, eq(schema.bookingSettings.workspaceId, schema.bookings.workspaceId))
+    .leftJoin(schema.vehicles, eq(schema.vehicles.id, schema.bookings.vehicleId))
+    .where(
+      and(
+        eq(schema.bookings.status, "COMPLETED"),
+        isNull(schema.bookings.serviceReminderSentAt),
+        eq(schema.workspaces.bookingEnabled, true),
+        sql`${schema.services.reminderMonths} is not null`,
+        sql`${schema.contacts.email} is not null`,
+        isNull(schema.contacts.emailOptOutAt),
+        sql`${schema.bookings.startsAt} + make_interval(months => ${schema.services.reminderMonths}) <= ${now}`,
+        sql`${schema.bookings.startsAt} + make_interval(months => ${schema.services.reminderMonths}) > ${now}::timestamptz - interval '60 days'`,
+        // Ingen nyere booking hos samme kunde (så har de allerede booket igen).
+        sql`not exists (select 1 from ${schema.bookings} later where later.contact_id = ${schema.bookings.contactId}
+              and later.starts_at > ${schema.bookings.startsAt} and later.status in ('CONFIRMED', 'COMPLETED'))`,
+      ),
+    )
+    .limit(500);
+
+  const appUrl = await getAppUrl();
+  let sent = 0;
+  for (const row of due) {
+    const { booking } = row;
+    // Markér først, så en fejl midt i kørslen ikke giver dobbelte e-mails.
+    const [claimed] = await db
+      .update(schema.bookings)
+      .set({ serviceReminderSentAt: new Date() })
+      .where(and(eq(schema.bookings.id, booking.id), isNull(schema.bookings.serviceReminderSentAt)))
+      .returning({ id: schema.bookings.id });
+    if (!claimed) continue;
+    const first = row.contactName.split(" ")[0];
+    const result = await sendEmail({
+      to: row.email!,
+      subject: `Tid til ${booking.serviceName.toLowerCase()} igen?`,
+      headers: { "List-Unsubscribe": `<${appUrl}/book/afmeld/${booking.token}>` },
+      ...brandedEmail({
+        sender: row.wsName,
+        heading: `Hej ${first}`,
+        paragraphs: [
+          `Det er ${row.months} måneder siden, ${row.plate ? `bilen (${formatPlate(row.plate)})` : "din bil"} fik ${booking.serviceName.toLowerCase()} hos os.`,
+          "Det er et godt tidspunkt at få det gjort igen. Book en tid, når det passer dig.",
+        ],
+        button: { label: "Book tid", url: `${appUrl}/book/${row.key}` },
+        footer: `Sendt af ${row.wsName}.`,
+        unsubscribeUrl: `${appUrl}/book/afmeld/${booking.token}`,
+      }),
+    });
+    if (!result.sent) {
+      await db.update(schema.bookings).set({ serviceReminderSentAt: null }).where(eq(schema.bookings.id, booking.id));
+      continue;
+    }
+    await logEvent(booking.workspaceId, null, `Påmindelse om ny behandling sendt: ${booking.serviceName}`, {
+      contactId: booking.contactId,
+    });
+    sent++;
+  }
+  return sent;
+}
