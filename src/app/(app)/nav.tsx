@@ -8,6 +8,7 @@ export const NAV_ITEMS: { href: string; label: string; also?: string[]; module?:
   { href: "/venter", label: "Venter på svar" },
   { href: "/kunder", label: "Kunder", also: ["/virksomheder"] },
   { href: "/pipeline", label: "Pipeline" },
+  { href: "/leads", label: "Find leads" },
   { href: "/kalender", label: "Kalender", also: ["/biler"], module: "booking" },
   { href: "/opgaver", label: "Opgaver" },
   { href: "/projekter", label: "Projekter", module: "agency" },

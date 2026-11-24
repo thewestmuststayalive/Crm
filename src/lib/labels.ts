@@ -23,6 +23,7 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
   OTHER: "Andet",
   IMPORT: "Import",
   BOOKING: "Onlinebooking",
+  PROSPECTING: "Leadsøgning",
 };
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {
