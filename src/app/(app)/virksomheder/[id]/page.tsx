@@ -36,9 +36,12 @@ function websiteHref(website: string) {
 export default async function CompanyPage({ params }: PageProps<"/virksomheder/[id]">) {
   const { id } = await params;
   const { user, workspace } = await requireWorkspace();
-  const company = await getCompany(workspace.id, id);
+  const [company, customFields, modules] = await Promise.all([
+    getCompany(workspace.id, id),
+    getCustomFields(workspace.id, "COMPANY"),
+    getModules(workspace.id),
+  ]);
   if (!company) notFound();
-  const customFields = await getCustomFields(workspace.id, "COMPANY");
 
   const [contacts, ownerName] = await Promise.all([
     db
@@ -55,7 +58,7 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
       .orderBy(asc(schema.contacts.name)),
     getUserName(company.ownerId),
   ]);
-  const agency = (await getModules(workspace.id)).agency;
+  const agency = modules.agency;
   const month = currentMonth();
   const reportToken = agency ? await ensureReportToken(workspace.id, company.id) : null;
   const appUrl = agency ? await getAppUrl() : "";

@@ -6,7 +6,7 @@ import { cache } from "react";
 import { db, schema } from "@/db";
 import type { Role } from "@/db/schema";
 import { hasRole } from "./roles";
-import { getSessionUserId } from "./session";
+import { getSessionUser } from "./session";
 
 export const WORKSPACE_COOKIE = "crm_workspace";
 
@@ -14,16 +14,7 @@ export type CurrentUser = { id: string; name: string; email: string };
 export type WorkspaceMembership = { id: string; name: string; role: Role };
 
 /** Den indloggede bruger, eller null. Caches pr. request. */
-export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const userId = await getSessionUserId();
-  if (!userId) return null;
-  const [user] = await db
-    .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email })
-    .from(schema.users)
-    .where(eq(schema.users.id, userId))
-    .limit(1);
-  return user ?? null;
-});
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => getSessionUser());
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();

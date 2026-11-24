@@ -26,9 +26,8 @@ export const metadata: Metadata = { title: "Deal" };
 export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) {
   const { id } = await params;
   const { user, workspace } = await requireWorkspace();
-  const deal = await getDeal(workspace.id, id);
+  const [deal, customFields] = await Promise.all([getDeal(workspace.id, id), getCustomFields(workspace.id, "DEAL")]);
   if (!deal) notFound();
-  const customFields = await getCustomFields(workspace.id, "DEAL");
 
   const [contact, company, ownerName, timeline, tasks, members, pipelines, quotes] = await Promise.all([
     deal.contactId ? getContact(workspace.id, deal.contactId) : null,

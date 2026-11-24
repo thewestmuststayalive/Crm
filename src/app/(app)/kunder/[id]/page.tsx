@@ -34,11 +34,13 @@ export const metadata: Metadata = { title: "Kontakt" };
 export default async function ContactPage({ params }: PageProps<"/kunder/[id]">) {
   const { id } = await params;
   const { user, workspace } = await requireWorkspace();
-  const contact = await getContact(workspace.id, id);
+  const [contact, customFields, modules] = await Promise.all([
+    getContact(workspace.id, id),
+    getCustomFields(workspace.id, "CONTACT"),
+    getModules(workspace.id),
+  ]);
   if (!contact) notFound();
-  const customFields = await getCustomFields(workspace.id, "CONTACT");
 
-  const modules = await getModules(workspace.id);
   const [company, ownerName, timeline, deals, tasks, members, vehicles, bookings] = await Promise.all([
     contact.companyId ? getCompany(workspace.id, contact.companyId) : null,
     getUserName(contact.ownerId),

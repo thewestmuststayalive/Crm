@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { testSql } from "./db";
 import { uid } from "./helpers";
 
 function yesterdayIso() {
@@ -38,6 +39,18 @@ test("deal fra kontakt, flyt i pipeline, vundet gør kontakten til kunde", async
   await card.dispatchEvent("dragstart", { dataTransfer });
   await page.locator('section[data-stage-name="Vundet"]').dispatchEvent("drop", { dataTransfer });
   await expect(page.locator('section[data-stage-name="Vundet"]')).toContainText(dealTitle);
+  // Vent til flytningen er gemt, før siden genindlæses.
+  await expect
+    .poll(
+      async () =>
+        (
+          await testSql(
+            "select s.name from deals d join pipeline_stages s on s.id = d.stage_id where d.title = $1",
+            [dealTitle],
+          )
+        ).rows[0]?.name,
+    )
+    .toBe("Vundet");
   await page.reload();
   await expect(page.locator('section[data-stage-name="Vundet"]')).toContainText(dealTitle);
 

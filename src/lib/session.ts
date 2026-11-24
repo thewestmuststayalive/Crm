@@ -25,18 +25,22 @@ export async function createSession(userId: string) {
   });
 }
 
-/** Returnerer bruger-id for den aktuelle, gyldige session eller null. */
-export async function getSessionUserId(): Promise<string | null> {
+/**
+ * Den indloggede bruger for den aktuelle, gyldige session, eller null.
+ * Session og bruger hentes i én forespørgsel, så hver side venter på én tur til databasen i stedet for to.
+ */
+export async function getSessionUser(): Promise<{ id: string; name: string; email: string } | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const [row] = await db
-    .select({ userId: schema.sessions.userId })
+    .select({ id: schema.users.id, name: schema.users.name, email: schema.users.email })
     .from(schema.sessions)
+    .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
     .where(
       and(eq(schema.sessions.tokenHash, hashToken(token)), gt(schema.sessions.expiresAt, new Date())),
     )
     .limit(1);
-  return row?.userId ?? null;
+  return row ?? null;
 }
 
 export async function deleteSession() {

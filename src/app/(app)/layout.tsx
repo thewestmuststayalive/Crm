@@ -21,8 +21,9 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, workspace, memberships } = await requireWorkspace();
-  const modules = await getModules(workspace.id);
-  const [[{ unread }], [{ notes }], waiting, bookingsToday] = await Promise.all([
+  // Alt hentes samtidig, så menuen kun koster én tur til databasen.
+  const [modules, [{ unread }], [{ notes }], waiting, bookingsToday, running] = await Promise.all([
+    getModules(workspace.id),
     db
       .select({ unread: sql<number>`coalesce(sum(${schema.conversations.unreadCount}), 0)::int` })
       .from(schema.conversations)
@@ -32,10 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .from(schema.notifications)
       .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt))),
     countWaiting(workspace.id),
-    modules.booking ? countBookingsToday(workspace.id) : 0,
+    countBookingsToday(workspace.id),
+    getRunningTimer(workspace.id, user.id),
   ]);
-  const running = modules.agency ? await getRunningTimer(workspace.id, user.id) : null;
-  const badges = { "/indbakke": unread, "/venter": waiting, "/kalender": bookingsToday };
+  const badges = { "/indbakke": unread, "/venter": waiting, "/kalender": modules.booking ? bookingsToday : 0 };
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -82,7 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="hidden md:block">
           <Nav badges={badges} modules={modules} />
         </div>
-        {running?.startedAt && (
+        {modules.agency && running?.startedAt && (
           <TimerBadge startedAt={running.startedAt.toISOString()} label={running.companyName ?? "Intern tid"} />
         )}
         <NotificationPoller initialUnread={notes} />
@@ -93,9 +94,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {user.email} · {ROLE_LABELS[workspace.role]}
             </p>
           </div>
-          <form action={logout} className="md:mt-2">
-            <button className="text-brand-200 underline hover:text-white">Log ud</button>
-          </form>
+          <div className="flex items-center gap-3 md:mt-2">
+            <Link href="/telefon" className="text-brand-200 underline hover:text-white">
+              Brug på telefonen
+            </Link>
+            <form action={logout}>
+              <button className="text-brand-200 underline hover:text-white">Log ud</button>
+            </form>
+          </div>
         </div>
       </aside>
       <main className="min-w-0 flex-1 p-4 pb-24 md:p-8">{children}</main>

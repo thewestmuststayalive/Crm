@@ -56,16 +56,22 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { fejl, visning } = await searchParams;
   const all = visning === "alle" && memberships.length > 1;
   const workspaceIds = all ? memberships.map((m) => m.id) : [workspace.id];
-  const d = await getDashboard(workspaceIds, user.id);
-  const modules = all ? { booking: false, agency: false } : await getModules(workspace.id);
-  const showBookings = modules.booking;
-  const month = currentMonth();
   const hidden = all || (await cookies()).get(onboardingCookie(workspace.id))?.value === "1";
-  const steps = hidden ? [] : await getOnboarding(workspace.id);
+  const month = currentMonth();
+  // Forespørgslerne køres samtidig, så siden kun venter på den langsomste.
+  const [d, modules] = await Promise.all([
+    getDashboard(workspaceIds, user.id),
+    all ? { booking: false, agency: false } : getModules(workspace.id),
+  ]);
+  const showBookings = modules.booking;
+  const [steps, retainerList, bookingsToday] = await Promise.all([
+    hidden ? [] : getOnboarding(workspace.id),
+    modules.agency ? getRetainerOverview(workspace.id, month, true) : [],
+    showBookings ? getTodaysBookings(workspace.id) : [],
+  ]);
+  const retainers = retainerList.slice(0, 6);
   const stepsDone = steps.filter((st) => st.done).length;
   const showOnboarding = steps.length > 0 && stepsDone < steps.length;
-  const retainers = modules.agency ? (await getRetainerOverview(workspace.id, month, true)).slice(0, 6) : [];
-  const bookingsToday = showBookings ? await getTodaysBookings(workspace.id) : [];
   const today = todayIso();
 
   const totalSources = d.sources.reduce((s, r) => s + r.n, 0);
