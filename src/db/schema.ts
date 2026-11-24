@@ -9,6 +9,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -76,6 +77,8 @@ export const workspaces = pgTable("workspaces", {
   emailTexts: jsonb("email_texts").$type<Record<string, string>>().notNull().default({}),
   /** Tidsregistrering, retainers og projekter (fx bureau). */
   agencyEnabled: boolean("agency_enabled").notNull().default(false),
+  /** Højeste antal Google Maps-søgninger pr. måned (styrer udgiften til Google). */
+  leadSearchMonthlyLimit: integer("lead_search_monthly_limit").notNull().default(200),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -115,6 +118,7 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "OTHER",
   "IMPORT",
   "BOOKING",
+  "PROSPECTING",
 ]);
 export type LeadSource = (typeof leadSourceEnum.enumValues)[number];
 
@@ -966,4 +970,110 @@ export const savedReplies = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("saved_replies_workspace_idx").on(t.workspaceId, t.position)],
+);
+
+// ---------------------------------------------------------------------------
+// Find leads: lister med firmaer fra CVR, Google Maps eller indtastet manuelt.
+// ---------------------------------------------------------------------------
+
+export const prospectSourceEnum = pgEnum("prospect_source", ["CVR", "GOOGLE", "MANUAL"]);
+export type ProspectSource = (typeof prospectSourceEnum.enumValues)[number];
+
+export const prospectStatusEnum = pgEnum("prospect_status", [
+  "NEW",
+  "CALLED",
+  "CALL_BACK",
+  "INTERESTED",
+  "NOT_INTERESTED",
+  "CONVERTED",
+]);
+export type ProspectStatus = (typeof prospectStatusEnum.enumValues)[number];
+
+/** Resultatet af et hjemmeside-tjek. */
+export type WebsiteCheck = {
+  ok: boolean;
+  error?: string;
+  finalUrl?: string;
+  https?: boolean;
+  mobile?: boolean;
+  responseMs?: number;
+  title?: string | null;
+  metaDescription?: boolean;
+  metaPixel?: boolean;
+  googleTag?: boolean;
+  booking?: boolean;
+  copyrightYear?: number | null;
+  platform?: string | null;
+  score: number;
+  angles: string[];
+};
+
+export const prospectLists = pgTable(
+  "prospect_lists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("prospect_lists_workspace_idx").on(t.workspaceId, t.createdAt)],
+);
+
+/** Et firma i en lead-liste. Slettes automatisk 6 måneder efter sidste ændring (dataminimering). */
+export const prospects = pgTable(
+  "prospects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    listId: uuid("list_id")
+      .notNull()
+      .references(() => prospectLists.id, { onDelete: "cascade" }),
+    source: prospectSourceEnum("source").notNull(),
+    /** CVR-nummer eller Google place-id; bruges til at undgå dubletter. */
+    externalId: text("external_id"),
+    name: text("name").notNull(),
+    cvr: text("cvr"),
+    address: text("address"),
+    phone: text("phone"),
+    website: text("website"),
+    industry: text("industry"),
+    employees: text("employees"),
+    companyForm: text("company_form"),
+    foundedAt: date("founded_at"),
+    rating: real("rating"),
+    reviewCount: integer("review_count"),
+    mapsUrl: text("maps_url"),
+    status: prospectStatusEnum("status").notNull().default("NEW"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    callBackDate: date("call_back_date"),
+    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
+    websiteCheck: jsonb("website_check").$type<WebsiteCheck>(),
+    websiteCheckedAt: timestamp("website_checked_at", { withTimezone: true }),
+    convertedCompanyId: uuid("converted_company_id").references(() => companies.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("prospects_list_idx").on(t.listId, t.status),
+    index("prospects_workspace_updated_idx").on(t.workspaceId, t.updatedAt),
+    uniqueIndex("prospects_workspace_external_idx").on(t.workspaceId, t.source, t.externalId),
+  ],
+);
+
+/** Forbrug af betalte søgninger pr. firma pr. måned ("2026-11"). */
+export const leadSearchUsage = pgTable(
+  "lead_search_usage",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    month: text("month").notNull(),
+    googleRequests: integer("google_requests").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.month] })],
 );

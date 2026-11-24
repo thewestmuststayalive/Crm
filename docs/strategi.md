@@ -181,3 +181,15 @@ Research af bilplejesystemer (Anolla, Urable, Jobber, Mobile Tech RX) og bureaus
 **Lært:** Skeletvisninger (loading.js) streamer siden. Ved hurtige klik kunne rester af forrige side blive hængende, og "ikke fundet" svarede 200 i stedet for 404. Derfor bruges i stedet en indlæsningsbjælke.
 
 **Næste forslag:** før/efter-billeder (kræver Vercel Blob), betaling/depositum ved booking (Stripe/MobilePay), SMS-påmindelser, AI-svarforslag i indbakken.
+
+## 9. Find leads (nov. 2026)
+
+Nyt menupunkt **Find leads** til at finde nye kunder (bureau: firmaer der mangler hjemmeside/annoncer; bilpleje: firmaer med firmabiler, bilforhandlere).
+
+- **Lister og opfølgning:** status (Ny, Ringet op, Ring igen, Interesseret, Ikke interesseret, Gjort til kunde), ansvarlig, noter. "Ring igen" opretter en opgave. Eksport til Excel.
+- **Google Maps** (Places API New): op til 20 firmaer pr. søgning, 60 pr. søgeord. Loft pr. firma pr. måned (standard 200) styres på siden Find leads.
+- **CVR** (Erhvervsstyrelsens Elasticsearch): branche, postnummer, virksomhedsform, størrelse og nystartede. Reklamebeskyttede firmaer sorteres altid fra.
+- **Hjemmeside-tjek:** https, mobilvenlig, hastighed, Meta Pixel, Google-tag, booking og ©-år → score og salgsvinkler. Henter kun offentlige adresser (beskyttet mod SSRF).
+- **Gør til kunde:** opretter virksomhed (+ kontakt og deal med kilde "Leadsøgning") med noter og tjek på tidslinjen.
+- **Lov og GDPR:** leads kontaktes på telefon/brev/LinkedIn – ikke reklame-e-mail uden samtykke (markedsføringsloven § 10). Lead-lister slettes automatisk efter 6 måneder uden ændringer.
+- **Ikke testet mod de rigtige tjenester endnu:** Google og CVR er bygget efter dokumentationen og testet mod simulationer (e2e/meta-mock.ts). Første rigtige søgning sker, når nøglerne er sat i Vercel.

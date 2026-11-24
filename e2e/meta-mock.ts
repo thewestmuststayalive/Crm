@@ -2,7 +2,8 @@ import { createServer, type Server } from "node:http";
 
 // Falske udgaver af eksterne tjenester, så alt kan testes uden rigtige nøgler:
 // Metas Graph API (META_GRAPH_URL/META_OAUTH_URL), Resend til e-mail (RESEND_API_URL)
-// og CVR-opslag (CVR_API_URL).
+// CVR-opslag (CVR_API_URL), Google Places (GOOGLE_PLACES_URL), CVR-søgning (CVR_ES_URL)
+// og to små hjemmesider til hjemmeside-tjekket (/site/old og /site/modern).
 
 export const META_MOCK_PORT = 3999;
 export const META_MOCK_URL = `http://localhost:${META_MOCK_PORT}`;
@@ -115,6 +116,95 @@ export function startMetaMock(): Promise<Server> {
           });
         }
         return send(404, { error: "NOT_FOUND" });
+      }
+      case "POST /places:searchText": {
+        // Falsk Google Places (New) Text Search
+        if (req.headers["x-goog-api-key"] !== "test-google") return send(403, { error: { message: "bad key" } });
+        if (!String(req.headers["x-goog-fieldmask"] ?? "").includes("places.nationalPhoneNumber")) {
+          return send(400, { error: { message: "missing field mask" } });
+        }
+        if (body?.pageToken === "PAGE2") {
+          return send(200, {
+            places: [
+              {
+                id: "place-3", displayName: { text: "Hår & Co" }, formattedAddress: "Søgade 3, 8000 Aarhus C, Danmark",
+                nationalPhoneNumber: "86 33 33 33", websiteUri: `${META_MOCK_URL}/site/modern`, rating: 4.9,
+                userRatingCount: 310, businessStatus: "OPERATIONAL", primaryTypeDisplayName: { text: "Frisør" },
+              },
+            ],
+          });
+        }
+        return send(200, {
+          places: [
+            {
+              id: "place-1", displayName: { text: "Salon Klip" }, formattedAddress: "Klipgade 1, 8000 Aarhus C, Danmark",
+              nationalPhoneNumber: "86 12 34 56", websiteUri: `${META_MOCK_URL}/site/old`, rating: 4.6,
+              userRatingCount: 120, googleMapsUri: "https://maps.google.com/?cid=1", businessStatus: "OPERATIONAL",
+              primaryTypeDisplayName: { text: "Frisør" },
+            },
+            {
+              id: "place-2", displayName: { text: "Frisør Uden Side" }, formattedAddress: "Torvet 2, 8000 Aarhus C, Danmark",
+              nationalPhoneNumber: "86 22 22 22", rating: 4.1, userRatingCount: 12, businessStatus: "OPERATIONAL",
+            },
+            {
+              id: "place-closed", displayName: { text: "Lukket Salon" }, businessStatus: "CLOSED_PERMANENTLY",
+            },
+          ],
+          nextPageToken: "PAGE2",
+        });
+      }
+      case "POST /cvr-permanent/virksomhed/_search": {
+        // Falsk CVR-søgning (Erhvervsstyrelsens Elasticsearch)
+        const expected = `Basic ${Buffer.from("test-cvr:test-pass").toString("base64")}`;
+        if (req.headers.authorization !== expected) return send(401, { error: "unauthorized" });
+        const meta = (navn: string, extra: Record<string, unknown> = {}) => ({
+          nyesteNavn: { navn },
+          nyesteBeliggenhedsadresse: { vejnavn: "Nygade", husnummerFra: 5, postnummer: 8000, postdistrikt: "Aarhus C" },
+          nyesteHovedbranche: { branchekode: "960210", branchetekst: "Frisører" },
+          nyesteVirksomhedsform: { kortBeskrivelse: "ApS" },
+          nyesteMaanedsbeskaeftigelse: { intervalKodeAntalAnsatte: "ANTAL_2_4" },
+          stiftelsesDato: daysAgo(20),
+          sammensatStatus: "NORMAL",
+          ...extra,
+        });
+        return send(200, {
+          hits: {
+            total: 2,
+            hits: [
+              {
+                _source: {
+                  Vrvirksomhed: {
+                    cvrNummer: 44556677,
+                    reklamebeskyttet: false,
+                    telefonNummer: [{ kontaktoplysning: "40404040", hemmelig: false, periode: { gyldigTil: null } }],
+                    hjemmeside: [],
+                    virksomhedMetadata: meta("Nyt Hår ApS"),
+                  },
+                },
+              },
+              {
+                // Reklamebeskyttet: må aldrig vises, selv hvis registret skulle returnere det.
+                _source: {
+                  Vrvirksomhed: { cvrNummer: 11223344, reklamebeskyttet: true, virksomhedMetadata: meta("Beskyttet Frisør ApS") },
+                },
+              },
+            ],
+          },
+        });
+      }
+      case "GET /site/old":
+      case "GET /site/modern": {
+        const modern = path === "/site/modern";
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end(
+          modern
+            ? `<!doctype html><html><head><title>Hår & Co</title><meta name="viewport" content="width=device-width, initial-scale=1">
+               <meta name="description" content="Frisør i Aarhus med online booking">
+               <script src="https://connect.facebook.net/en_US/fbevents.js"></script>
+               <script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST"></script></head>
+               <body><a href="/book">Book tid</a><footer>© ${new Date().getFullYear()} Hår & Co</footer></body></html>`
+            : `<html><head><title>Salon Klip</title></head><body><p>Velkommen</p><footer>Copyright 2016 Salon Klip</footer></body></html>`,
+        );
       }
       case "POST /emails":
         return send(200, { id: `email_${log.length}` });

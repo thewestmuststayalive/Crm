@@ -40,6 +40,8 @@ export async function exportWorkspace(workspaceId: string) {
     projects,
     templates,
     conversations,
+    prospectLists,
+    prospects,
   ] = await Promise.all([
     db
       .select({ name: schema.users.name, email: schema.users.email, role: schema.memberships.role })
@@ -63,6 +65,8 @@ export async function exportWorkspace(workspaceId: string) {
     db.select().from(schema.projects).where(byWs(schema.projects)),
     db.select().from(schema.projectTemplates).where(byWs(schema.projectTemplates)),
     db.select().from(schema.conversations).where(byWs(schema.conversations)),
+    db.select().from(schema.prospectLists).where(byWs(schema.prospectLists)),
+    db.select().from(schema.prospects).where(byWs(schema.prospects)),
   ]);
   const quoteLines = quotes.length
     ? await db
@@ -107,6 +111,8 @@ export async function exportWorkspace(workspaceId: string) {
     tilbudslinjer: quoteLines,
     ydelser: services,
     biler: vehicles,
+    leadlister: prospectLists,
+    leads: prospects,
     bookinger: strip(bookings, ["token", "ipHash"]),
     tidsregistreringer: timeEntries,
     retainers,

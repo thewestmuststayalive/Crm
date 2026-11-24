@@ -48,6 +48,14 @@ export default defineConfig({
       RESEND_API_URL: "http://localhost:3999",
       EMAIL_FROM: "Kundespor <noreply@example.com>",
       CVR_API_URL: "http://localhost:3999/api",
+      // Find leads: falsk Google Places og CVR-søgning i e2e/meta-mock.ts.
+      GOOGLE_PLACES_API_KEY: "test-google",
+      GOOGLE_PLACES_URL: "http://localhost:3999",
+      CVR_ES_USER: "test-cvr",
+      CVR_ES_PASSWORD: "test-pass",
+      CVR_ES_URL: "http://localhost:3999/cvr-permanent/virksomhed/_search",
+      // Hjemmeside-tjekket må kun nå netop denne lokale testserver – alt andet internt afvises stadig.
+      WEBSITE_CHECK_ALLOW_HOSTS: "localhost:3999",
     },
   },
 });
