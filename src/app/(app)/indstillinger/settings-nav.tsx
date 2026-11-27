@@ -13,6 +13,7 @@ const tabs: { href: string; label: string; module?: "booking" }[] = [
   { href: "/indstillinger/anmeldelser", label: "Anmeldelser" },
   { href: "/indstillinger/e-mails", label: "E-mails" },
   { href: "/indstillinger/svar", label: "Svarskabeloner" },
+  { href: "/indstillinger/regnskab", label: "Regnskab" },
   { href: "/indstillinger/kontaktformular", label: "Kontaktformular" },
   { href: "/indstillinger/meta", label: "Facebook & Instagram" },
   { href: "/indstillinger/persondata", label: "Persondata" },

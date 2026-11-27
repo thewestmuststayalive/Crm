@@ -73,7 +73,11 @@ test("logo, firmafarve og egne e-mailtekster på kundesider; notifikationer kan 
   await expect(c.getByAltText(ws)).toBeVisible();
   await expect(c.locator("main")).toHaveAttribute("style", /--color-brand-700:\s*#cc3300/);
   await c.getByRole("radio", { name: new RegExp(service) }).click();
-  await c.getByRole("radiogroup", { name: "Dag" }).getByRole("radio").nth(1).click();
+  // Første åbne dag efter den første (lukkede dage, fx søndag, kan ikke vælges).
+  const days = c.getByRole("radiogroup", { name: "Dag" }).getByRole("radio");
+  let day = 1;
+  while (await days.nth(day).isDisabled()) day++;
+  await days.nth(day).click();
   await c.getByRole("radio", { name: "09:00", exact: true }).click();
   await c.getByLabel("Navn").fill(`Ida Isen ${id}`);
   await c.getByLabel("Telefon").fill("50607080");

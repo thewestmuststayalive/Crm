@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteBooking, setBookingStatus, updateBooking } from "@/app/actions/bookings";
 import { Badge, DetailRow, PageHeader } from "@/components/display";
+import { CreateInvoiceButton } from "@/components/invoice-widgets";
 import { Button, Card, ConfirmButton } from "@/components/ui";
 import { db, schema } from "@/db";
 import type { BookingStatus } from "@/db/schema";
@@ -74,14 +75,17 @@ export default async function BookingPage({ params }: PageProps<"/kalender/[id]"
           </span>
         }
         actions={
-          hasRole(workspace.role, "ADMIN") && (
-            <form action={deleteBooking}>
-              <input type="hidden" name="id" value={booking.id} />
-              <ConfirmButton message="Slet bookingen helt? Brug hellere 'Aflys', hvis den skal kunne ses i historikken.">
-                Slet
-              </ConfirmButton>
-            </form>
-          )
+          <>
+            <CreateInvoiceButton fields={{ bookingId: booking.id }} />
+            {hasRole(workspace.role, "ADMIN") && (
+              <form action={deleteBooking}>
+                <input type="hidden" name="id" value={booking.id} />
+                <ConfirmButton message="Slet bookingen helt? Brug hellere 'Aflys', hvis den skal kunne ses i historikken.">
+                  Slet
+                </ConfirmButton>
+              </form>
+            )}
+          </>
         }
       />
 

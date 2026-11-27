@@ -193,3 +193,13 @@ Nyt menupunkt **Find leads** til at finde nye kunder (bureau: firmaer der mangle
 - **Gør til kunde:** opretter virksomhed (+ kontakt og deal med kilde "Leadsøgning") med noter og tjek på tidslinjen.
 - **Lov og GDPR:** leads kontaktes på telefon/brev/LinkedIn – ikke reklame-e-mail uden samtykke (markedsføringsloven § 10). Lead-lister slettes automatisk efter 6 måneder uden ændringer.
 - **Ikke testet mod de rigtige tjenester endnu:** Google og CVR er bygget efter dokumentationen og testet mod simulationer (e2e/meta-mock.ts). Første rigtige søgning sker, når nøglerne er sat i Vercel.
+
+## 10. Fakturering via e-conomic (nov. 2026) – del 1 af 4
+
+Inspireret af Clientflow (clientflow.nu). Plan: 1) fakturering, 2) MobilePay/kort via Stripe, 3) SMS-påmindelser, 4) abonnementer.
+
+- **Forbindelse:** hvert firma forbinder sin egen e-conomic-aftale (Indstillinger → Regnskab). Tokenet gemmes krypteret. Abonnementsniveauet læses fra `/self`; Basis er skrivebeskyttet, og det vises tydeligt.
+- **Fakturaer:** kladde i Kundespor ud fra en deal (linjer fra accepteret tilbud), en booking (pris omregnet til ekskl. moms), en virksomheds tid/retainer for forrige måned, eller tom. "Bogfør og send" opretter kunden i e-conomic (genbrug via CVR), laver kladde, bogfører, henter PDF og sender e-mail med PDF og link til `/faktura/[token]`.
+- **Status:** kladde, kladde i e-conomic, sendt, forfalden, betalt. Betaling hentes fra e-conomic (restbeløb 0) dagligt eller med en knap; notifikation "Faktura X er betalt".
+- **Sikkerhed:** kun administratorer bogfører; dobbeltklik er låst; kladder er ikke offentlige; e-conomic-forbindelsen kan kun gemmes, når administratoren selv har startet den (cookie).
+- **Test:** læse-endpoints og filtre er afprøvet mod e-conomics rigtige demo-API. Oprettelse og bogføring er testet mod en simulering, fordi demoen er skrivebeskyttet.

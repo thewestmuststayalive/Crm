@@ -14,6 +14,121 @@ function daysAgo(n: number) {
   return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 }
 
+// ---------------------------------------------------------------------------
+// Falsk e-conomic REST API (samme svarformat som restapi.e-conomic.com)
+// ---------------------------------------------------------------------------
+
+type EcoCustomer = { customerNumber: number; name: string; corporateIdentificationNumber?: string; email?: string };
+type EcoDraft = { draftInvoiceNumber: number; netAmount: number; vatAmount: number; grossAmount: number; body: Record<string, unknown> };
+type EcoBooked = { bookedInvoiceNumber: number; date: string; dueDate: string; netAmount: number; vatAmount: number; grossAmount: number; remainder: number };
+
+const eco = {
+  customers: [{ customerNumber: 1, name: "Eksisterende Kunde A/S", corporateIdentificationNumber: "11112222" }] as EcoCustomer[],
+  drafts: new Map<number, EcoDraft>(),
+  booked: new Map<number, EcoBooked>(),
+  nextDraft: 1,
+  nextBooked: 1001,
+};
+
+function economic(
+  method: string,
+  url: URL,
+  body: Record<string, unknown> | null,
+  headers: import("node:http").IncomingHttpHeaders,
+  res: import("node:http").ServerResponse,
+) {
+  const send = (status: number, data: unknown) => {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+  };
+  const path = url.pathname.replace("/economic-api", "");
+  // Testhjælp: markér en bogført faktura som betalt.
+  if (path === "/__pay") {
+    const b = eco.booked.get(Number(url.searchParams.get("n")));
+    if (b) b.remainder = 0;
+    return send(200, { ok: Boolean(b) });
+  }
+  if (headers["x-appsecrettoken"] !== "test-economic-secret") return send(401, { message: "bad app token" });
+  const grant = headers["x-agreementgranttoken"];
+  if (grant !== "grant-plus" && grant !== "grant-basis") return send(401, { message: "bad grant" });
+  if (method !== "GET" && grant === "grant-basis") {
+    return send(403, { title: "The license is read-only.", status: 403, errorCode: "LicenseIsReadOnly" });
+  }
+  const coll = (collection: unknown[]) => send(200, { collection, pagination: { results: collection.length } });
+
+  if (method === "GET" && path === "/self") {
+    return send(200, {
+      agreementNumber: grant === "grant-plus" ? 777001 : 777002,
+      agreementType: { agreementTypeNumber: 1, name: "denmark", subscriptionPlanLevel: grant === "grant-plus" ? "plus" : "basis" },
+      company: { name: grant === "grant-plus" ? "Testfirma Regnskab ApS" : "Basis Firma ApS", companyIdentificationNumber: "12345678" },
+    });
+  }
+  if (method === "GET" && path === "/layouts") return coll([{ layoutNumber: 21, name: "DK. std. m. bankoplys. 1.8" }]);
+  if (method === "GET" && path === "/payment-terms")
+    return coll([{ paymentTermsNumber: 1, name: "Netto 8 dage", daysOfCredit: 8 }, { paymentTermsNumber: 2, name: "Løbende måned 30 dage" }]);
+  if (method === "GET" && path === "/customer-groups") return coll([{ customerGroupNumber: 1, name: "Diverse" }]);
+  if (method === "GET" && path === "/vat-zones")
+    return coll([{ vatZoneNumber: 1, name: "Domestic", enabledForCustomer: true }, { vatZoneNumber: 2, name: "EU", enabledForCustomer: true }]);
+  if (method === "GET" && path === "/products") {
+    if (url.searchParams.get("filter") !== "barred$eq:false") return send(400, { message: "unexpected filter" });
+    return coll([{ productNumber: "100", name: "Ydelser", barred: false }]);
+  }
+  if (method === "GET" && path === "/customers") {
+    const m = (url.searchParams.get("filter") ?? "").match(/^corporateIdentificationNumber\$eq:(\d+)$/);
+    return coll(eco.customers.filter((c) => m && c.corporateIdentificationNumber === m[1]));
+  }
+  const customerMatch = path.match(/^\/customers\/(\d+)$/);
+  if (method === "GET" && customerMatch) {
+    const c = eco.customers.find((x) => x.customerNumber === Number(customerMatch[1]));
+    return c ? send(200, c) : send(404, { message: "Customer not found" });
+  }
+  if (method === "POST" && path === "/customers") {
+    for (const k of ["name", "currency", "customerGroup", "paymentTerms", "vatZone"]) {
+      if (!body?.[k]) return send(400, { message: `${k} is required` });
+    }
+    const c = { ...(body as object), customerNumber: Math.max(...eco.customers.map((x) => x.customerNumber)) + 1 } as EcoCustomer;
+    eco.customers.push(c);
+    return send(201, c);
+  }
+  if (method === "POST" && path === "/invoices/drafts") {
+    for (const k of ["date", "currency", "customer", "paymentTerms", "layout", "recipient"]) {
+      if (!body?.[k]) return send(400, { message: `${k} is required` });
+    }
+    const lines = (body!.lines as { quantity: number; unitNetPrice: number; product?: { productNumber?: string } }[]) ?? [];
+    if (lines.some((l) => !l.product?.productNumber)) return send(400, { message: "No identifiers present on product." });
+    const net = Math.round(lines.reduce((s2, l) => s2 + l.quantity * l.unitNetPrice, 0) * 100) / 100;
+    const vat = Math.round(net * 25) / 100;
+    const d: EcoDraft = { draftInvoiceNumber: eco.nextDraft++, netAmount: net, vatAmount: vat, grossAmount: net + vat, body: body! };
+    eco.drafts.set(d.draftInvoiceNumber, d);
+    return send(201, { draftInvoiceNumber: d.draftInvoiceNumber, netAmount: d.netAmount, vatAmount: d.vatAmount, grossAmount: d.grossAmount });
+  }
+  if (method === "POST" && path === "/invoices/booked") {
+    const n = (body?.draftInvoice as { draftInvoiceNumber?: number })?.draftInvoiceNumber;
+    const d = n ? eco.drafts.get(n) : undefined;
+    if (!d) return send(404, { message: "Draft invoice not found" });
+    eco.drafts.delete(d.draftInvoiceNumber);
+    const today = new Date().toISOString().slice(0, 10);
+    const due = new Date(Date.now() + 8 * 86_400_000).toISOString().slice(0, 10);
+    const b: EcoBooked = {
+      bookedInvoiceNumber: eco.nextBooked++, date: today, dueDate: due,
+      netAmount: d.netAmount, vatAmount: d.vatAmount, grossAmount: d.grossAmount, remainder: d.grossAmount,
+    };
+    eco.booked.set(b.bookedInvoiceNumber, b);
+    return send(201, { ...b, pdf: { download: `/invoices/booked/${b.bookedInvoiceNumber}/pdf` } });
+  }
+  const bookedMatch = path.match(/^\/invoices\/booked\/(\d+)(\/pdf)?$/);
+  if (method === "GET" && bookedMatch) {
+    const b = eco.booked.get(Number(bookedMatch[1]));
+    if (!b) return send(404, { message: "Invoice not found" });
+    if (bookedMatch[2]) {
+      res.writeHead(200, { "Content-Type": "application/pdf" });
+      return res.end(`%PDF-1.4 Faktura ${b.bookedInvoiceNumber}`);
+    }
+    return send(200, b);
+  }
+  return send(404, { message: `e-conomic-mock kender ikke ${method} ${path}` });
+}
+
 export function startMetaMock(): Promise<Server> {
   const log: Logged[] = [];
   let outCounter = 0;
@@ -36,6 +151,15 @@ export function startMetaMock(): Promise<Server> {
 
     // Kald med et token skal have appsecret_proof (sikkerhedskrav i appen).
     if (query.access_token && !query.appsecret_proof) return send(400, { error: { message: "missing proof" } });
+
+    if (url.pathname === "/economic-connect") {
+      // Falsk e-conomic-godkendelsesside: sender straks tilbage med et token.
+      const redirect = new URL(query.redirectUrl);
+      redirect.searchParams.set("token", query.appPublicToken === "test-economic-public" ? "grant-plus" : "bad");
+      res.writeHead(302, { Location: redirect.toString() });
+      return res.end();
+    }
+    if (url.pathname.startsWith("/economic-api/")) return economic(req.method ?? "GET", url, body, req.headers, res);
 
     const key = `${req.method} ${path}`;
     switch (key) {
