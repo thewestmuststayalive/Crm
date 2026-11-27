@@ -250,6 +250,18 @@ export function startMetaMock(): Promise<Server> {
     }
     if (url.pathname.startsWith("/economic-api/")) return economic(req.method ?? "GET", url, body, req.headers, res);
     if (url.pathname.startsWith("/stripe-api/")) return stripe(req.method ?? "GET", url, raw, req.headers, res);
+    if (url.pathname.startsWith("/gatewayapi/")) {
+      // Falsk GatewayAPI (SMS)
+      if (req.headers.authorization !== "Token test-sms-token-1234567890") {
+        return send(401, { code: "0x0229", message: "Invalid token" });
+      }
+      if (req.method === "GET" && url.pathname === "/gatewayapi/rest/me") return send(200, { credit: 100, currency: "DKK", id: 1 });
+      if (req.method === "POST" && url.pathname === "/gatewayapi/rest/mtsms") {
+        const ok = body?.sender && body?.message && Array.isArray(body?.recipients) && typeof body.recipients[0]?.msisdn === "number";
+        return ok ? send(200, { ids: [log.length], usage: { total_cost: 0.3, currency: "DKK" } }) : send(422, { message: "bad request" });
+      }
+      return send(404, { message: "not found" });
+    }
     if (url.pathname.startsWith("/stripe-checkout/")) {
       // Falsk betalingsside: kunden "betaler" straks og sendes tilbage.
       const session = stripeState.sessions.get(url.pathname.split("/").pop() ?? "");

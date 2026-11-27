@@ -15,6 +15,7 @@ import {
   normalizePlate,
 } from "@/lib/booking";
 import { changeBookingStatus, createBooking, formatWhen, sendBookingEmail } from "@/lib/booking-flow";
+import { sendBookingSms } from "@/lib/sms";
 import { getContact, isMemberOf, logEvent } from "@/lib/crm";
 import { requireBookingModule } from "@/lib/modules";
 import { parseAmountOre } from "@/lib/quote-math";
@@ -106,7 +107,10 @@ export async function createManualBooking(_prev: ActionState, formData: FormData
     );
   }
   await logEvent(workspace.id, user.id, `Booket: ${serviceName} ${formatWhen(booking.startsAt)}`, { contactId });
-  if (formData.get("sendConfirmation") === "on") await sendBookingEmail(booking.id, "confirmation");
+  if (formData.get("sendConfirmation") === "on") {
+    await sendBookingEmail(booking.id, "confirmation");
+    await sendBookingSms(booking.id, "confirmation").catch((e) => console.error("SMS fejlede", e));
+  }
   revalidatePath("/kalender");
   redirect(`/kalender/${booking.id}`);
 }

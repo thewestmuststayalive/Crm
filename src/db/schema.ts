@@ -1185,3 +1185,44 @@ export const stripeConnections = pgTable("stripe_connections", {
   connectedById: uuid("connected_by_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// SMS via GatewayAPI (dansk udbyder, EU). Kun servicebeskeder om bookinger – aldrig reklame.
+// ---------------------------------------------------------------------------
+
+export const smsSettings = pgTable("sms_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** API-nøgle fra GatewayAPI (krypteret). */
+  tokenEnc: text("token_enc").notNull(),
+  /** Afsendernavn, op til 11 tegn (fx "Bilpleje"). */
+  sender: text("sender").notNull(),
+  confirmation: boolean("confirmation").notNull().default(true),
+  reminder: boolean("reminder").notNull().default(true),
+  /** Højeste antal SMS-dele pr. måned (styrer udgiften). */
+  monthlyLimit: integer("monthly_limit").notNull().default(300),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const smsLog = pgTable(
+  "sms_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    /** "confirmation", "reminder" eller "test". */
+    kind: text("kind").notNull(),
+    parts: integer("parts").notNull().default(1),
+    status: text("status").notNull(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("sms_log_workspace_idx").on(t.workspaceId, t.createdAt),
+    // Samme besked sendes aldrig to gange for samme booking.
+    uniqueIndex("sms_log_booking_kind_idx").on(t.bookingId, t.kind),
+  ],
+);

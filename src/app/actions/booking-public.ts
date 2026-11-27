@@ -12,6 +12,7 @@ import { findExistingContact } from "@/lib/leads";
 import { notify } from "@/lib/notify";
 import { isIsoDate, isTime, zonedToUtc } from "@/lib/time";
 import type { ActionState } from "./types";
+import { sendBookingSms } from "@/lib/sms";
 import { getStripeConnection } from "@/lib/stripe";
 
 // Offentlige handlinger på bookingsiden og aflysningssiden. Kunden er ikke logget ind:
@@ -139,6 +140,7 @@ export async function submitPublicBooking(_prev: PublicBookingState, formData: F
     deposit = { ore: pub.settings.depositOre, token: booking.token };
   }
   const emailed = await sendBookingEmail(booking.id, "confirmation");
+  await sendBookingSms(booking.id, "confirmation").catch((e) => console.error("SMS fejlede", e));
   return { success: "Din tid er booket.", booked: { service: service.name, when, emailed, deposit } };
 }
 

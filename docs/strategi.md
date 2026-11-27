@@ -210,3 +210,10 @@ Inspireret af Clientflow (clientflow.nu). Plan: 1) fakturering, 2) MobilePay/kor
 - **Fakturaer:** kundens fakturaside får "Betal med MobilePay eller kort" (Stripe Checkout; betalingsmetoder styres i Stripes dashboard). Betalingen registreres via webhook (signatur og firma tjekkes) og når kunden kommer tilbage. Fakturaen markeres "Betalt online"; udbetalingen fra Stripe registreres i e-conomic af bogholderen.
 - **Depositum ved onlinebooking:** beløb under Indstillinger → Betaling. Kunden betaler efter bookingen; linket står også i bekræftelsen. Kalenderen viser "betalt online/ikke betalt". Bookingen er gyldig, selv om depositum ikke er betalt – personalet vurderer.
 - **Test:** mod en simuleret Stripe (formular-kodede kald som api.stripe.com, webhook med rigtig HMAC-signatur). Ikke afprøvet mod en rigtig Stripe-konto endnu.
+
+## 12. SMS om bookinger via GatewayAPI (nov. 2026) – del 3 af 4
+
+- **Opsætning:** Indstillinger → SMS (kun med Booking-modulet). API-nøgle (tjekkes mod `/rest/me`, gemmes krypteret), afsendernavn (2–11 tegn a–z/tal), til/fra for bekræftelse og påmindelse, loft over SMS-dele pr. måned, test-SMS.
+- **Afsendelse:** bekræftelse ved onlinebooking og manuel booking med "send bekræftelse"; påmindelse dagen før i den daglige kørsel. Danske 8-cifrede numre får +45. Hver besked sendes højst én gang pr. booking (unik række i `sms_log`), og loftet tjekkes før afsendelse. Loggen gemmer ikke telefonnumre.
+- **Lov:** kun servicebeskeder om en booking kunden selv har lavet – ingen reklame-SMS (markedsføringsloven § 10).
+- **Test:** GatewayAPI's EU-adresse og fejlformat er afprøvet live (401 med ugyldig nøgle); afsendelse er testet mod en simulering.

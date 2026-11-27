@@ -7,6 +7,7 @@ const tabs: { href: string; label: string; module?: "booking" }[] = [
   { href: "/indstillinger", label: "Firma" },
   { href: "/indstillinger/medlemmer", label: "Medlemmer" },
   { href: "/indstillinger/booking", label: "Booking", module: "booking" },
+  { href: "/indstillinger/sms", label: "SMS", module: "booking" },
   { href: "/indstillinger/salgsfaser", label: "Salgsfaser" },
   { href: "/indstillinger/felter", label: "Egne felter" },
   { href: "/indstillinger/automatik", label: "Automatik" },

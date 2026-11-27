@@ -7,6 +7,7 @@ import { sendDailyDigests } from "@/lib/digest";
 import { cleanupStaleLeads } from "@/lib/gdpr";
 import { cleanupOldProspects } from "@/lib/prospects";
 import { syncOpenInvoices } from "@/lib/invoices";
+import { sendSmsReminders } from "@/lib/sms";
 import { getMetaConfig } from "@/lib/meta/graph";
 import { syncInsights } from "@/lib/meta/insights";
 import { sendBookingReminders, sendServiceReminders } from "@/lib/booking-flow";
@@ -79,6 +80,12 @@ export async function GET(request: NextRequest) {
     report.leadsDeleted = await cleanupStaleLeads();
   } catch (error) {
     console.error("Sletning af gamle leads fejlede", error);
+  }
+
+  try {
+    report.smsReminders = await sendSmsReminders();
+  } catch (error) {
+    console.error("SMS-påmindelser fejlede", error);
   }
 
   try {

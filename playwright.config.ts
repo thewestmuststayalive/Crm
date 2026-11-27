@@ -63,6 +63,8 @@ export default defineConfig({
       ECONOMIC_CONNECT_URL: "http://localhost:3999/economic-connect",
       // Betaling: falsk Stripe i e2e/meta-mock.ts.
       STRIPE_API_URL: "http://localhost:3999/stripe-api",
+      // SMS: falsk GatewayAPI i e2e/meta-mock.ts.
+      GATEWAYAPI_URL: "http://localhost:3999/gatewayapi",
     },
   },
 });
