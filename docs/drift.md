@@ -59,6 +59,7 @@ Disse trin kan vente, til du har brug for dem.
 | `GOOGLE_PLACES_API_KEY` | Når I vil søge leads i Google Maps | Nøgle til Places API (New) fra Google Cloud. Vejledning i appen under Find leads. Sæt også et dagligt loft i Google Cloud under Kvoter. 1.000 søgninger pr. måned er gratis; Kundespor har sit eget loft pr. firma (standard 200). |
 | `CVR_ES_USER`, `CVR_ES_PASSWORD` | Når I vil søge leads i CVR | Gratis "system-til-system"-adgang fra Erhvervsstyrelsen (cvrselvbetjening@erst.dk). `CVR_ES_URL` kan ændre adressen, hvis Erhvervsstyrelsen flytter den. |
 | `ECONOMIC_APP_SECRET_TOKEN`, `ECONOMIC_APP_PUBLIC_TOKEN` | Når I vil fakturere via e-conomic | Fra en gratis udvikleraftale hos e-conomic (kræver CVR og MitID). Opret en app med rollen Superbruger, og sæt redirect-adressen til `https://<jeres-adresse>/api/economic/callback`. Hvert firma forbinder derefter selv under Indstillinger → Regnskab. **Kræver e-conomic Plus eller højere** – på Basis kan andre programmer ikke oprette fakturaer. |
+| (ingen – Stripe) | Når kunderne skal kunne betale med MobilePay/kort | Stripe-nøglen sættes ind i appen under Indstillinger → Betaling (pr. firma, gemmes krypteret). Kundespor opretter selv en webhook hos Stripe til `/api/stripe/webhook/<firma-id>`. MobilePay slås til i Stripes dashboard. Når I tager imod rigtige betalinger, skal Vercel være på Pro (Hobby må ikke bruges kommercielt). |
 
 Efter ændringer i miljøvariabler skal der altid deployes igen (Deployments → Redeploy).
 

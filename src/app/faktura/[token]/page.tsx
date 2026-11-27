@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { BrandHeader } from "@/components/brand-header";
 import { brandStyle, getBranding } from "@/lib/branding";
 import { getPublicInvoice, isOverdue } from "@/lib/invoices";
+import { applyPaidSession } from "@/lib/payments";
+import { getCheckoutSession, getStripeConnection } from "@/lib/stripe";
+import { PayButton } from "./pay-button";
 import { formatIsoDate } from "@/lib/labels";
 import { formatOre } from "@/lib/quote-math";
 
@@ -13,10 +16,23 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default async function PublicInvoicePage({ params }: PageProps<"/faktura/[token]">) {
+export default async function PublicInvoicePage({ params, searchParams }: PageProps<"/faktura/[token]">) {
   const { token } = await params;
-  const row = await getPublicInvoice(token);
+  const sp = await searchParams;
+  let row = await getPublicInvoice(token);
   if (!row) notFound();
+  const conn = await getStripeConnection(row.workspace.id);
+  // Tilbage fra Stripe: registrér betalingen med det samme (webhooken kan komme lidt senere).
+  if (conn && sp.betaling === "ok" && typeof sp.session === "string" && row.invoice.status === "BOOKED") {
+    try {
+      const session = await getCheckoutSession(conn, sp.session);
+      if (session && session.metadata?.id === row.invoice.id && (await applyPaidSession(row.workspace.id, session))) {
+        row = (await getPublicInvoice(token)) ?? row;
+      }
+    } catch (error) {
+      console.error("Kunne ikke tjekke betalingen hos Stripe", error);
+    }
+  }
   const { invoice: inv, workspace: ws } = row;
   const brand = await getBranding(ws.id);
   const paid = inv.status === "PAID";
@@ -69,7 +85,17 @@ export default async function PublicInvoicePage({ params }: PageProps<"/faktura/
           >
             Hent fakturaen som PDF
           </a>
-          {!paid && <p className="text-sm text-slate-600">Betalingsoplysninger står på fakturaen.</p>}
+          {paid && sp.betaling === "ok" && (
+            <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Tak for din betaling.
+            </p>
+          )}
+          {!paid && conn && (
+            <div className="border-t border-slate-100 pt-4">
+              <PayButton token={token} kind="invoice" label="Betal med MobilePay eller kort" />
+            </div>
+          )}
+          {!paid && <p className="text-sm text-slate-600">Du kan også betale via bankoverførsel – oplysningerne står på fakturaen.</p>}
         </section>
         <p className="text-center text-xs text-slate-500">
           {[ws.name, ws.cvr ? `CVR ${ws.cvr}` : null, ws.phone, ws.email].filter(Boolean).join(" · ")}

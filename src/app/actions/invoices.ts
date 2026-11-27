@@ -26,6 +26,7 @@ import { brandedEmail, isEmailConfigured, sendEmail } from "@/lib/email";
 import { getInvoice, markInvoicePaid, newInvoiceToken, syncInvoice } from "@/lib/invoices";
 import { formatIsoDate, todayIso } from "@/lib/labels";
 import { formatOre } from "@/lib/quote-math";
+import { getStripeConnection } from "@/lib/stripe";
 import { getEntries, usageByCompany } from "@/lib/time-tracking";
 import { getAppUrl } from "@/lib/url";
 import { isUuid } from "@/lib/validation";
@@ -321,6 +322,7 @@ async function emailInvoice(workspace: { id: string; name: string }, invoiceId: 
   const firstName = recipient?.kind === "contact" ? recipient.recipient.name.split(" ")[0] : null;
   const url = `${await getAppUrl()}/faktura/${inv.token}`;
   const amount = formatOre(inv.grossOre ?? 0);
+  const canPayOnline = Boolean(await getStripeConnection(workspace.id));
   const result = await sendEmail({
     to: inv.email,
     subject: `Faktura ${inv.economicNumber} fra ${workspace.name}`,
@@ -336,9 +338,11 @@ async function emailInvoice(workspace: { id: string; name: string }, invoiceId: 
           forfald: inv.dueDate ? formatIsoDate(inv.dueDate) : "",
           firma: workspace.name,
         }),
-        "Fakturaen er vedhæftet som PDF. Du kan også se den online via knappen herunder.",
+        canPayOnline
+          ? "Fakturaen er vedhæftet som PDF. Du kan betale med MobilePay eller kort via knappen herunder."
+          : "Fakturaen er vedhæftet som PDF. Du kan også se den online via knappen herunder.",
       ],
-      button: { label: "Se fakturaen", url },
+      button: { label: canPayOnline ? "Se og betal fakturaen" : "Se fakturaen", url },
       footer: `Sendt af ${workspace.name} via Kundespor.`,
     }),
   });
@@ -540,7 +544,7 @@ export async function markPaid(formData: FormData) {
   const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) notFound();
-  if (await markInvoicePaid(workspace.id, id)) {
+  if (await markInvoicePaid(workspace.id, id, "manual")) {
     await audit(workspace.id, user.id, "Markerede faktura som betalt", id);
   }
   revalidatePath(`/fakturaer/${id}`);

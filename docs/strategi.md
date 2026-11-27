@@ -203,3 +203,10 @@ Inspireret af Clientflow (clientflow.nu). Plan: 1) fakturering, 2) MobilePay/kor
 - **Status:** kladde, kladde i e-conomic, sendt, forfalden, betalt. Betaling hentes fra e-conomic (restbeløb 0) dagligt eller med en knap; notifikation "Faktura X er betalt".
 - **Sikkerhed:** kun administratorer bogfører; dobbeltklik er låst; kladder er ikke offentlige; e-conomic-forbindelsen kan kun gemmes, når administratoren selv har startet den (cookie).
 - **Test:** læse-endpoints og filtre er afprøvet mod e-conomics rigtige demo-API. Oprettelse og bogføring er testet mod en simulering, fordi demoen er skrivebeskyttet.
+
+## 11. Betaling med MobilePay og kort via Stripe (nov. 2026) – del 2 af 4
+
+- **Forbindelse:** Indstillinger → Betaling. Hvert firma indsætter sin Stripe-nøgle (krypteret). Kundespor opretter selv webhooken hos Stripe og gemmer dens signeringsnøgle krypteret.
+- **Fakturaer:** kundens fakturaside får "Betal med MobilePay eller kort" (Stripe Checkout; betalingsmetoder styres i Stripes dashboard). Betalingen registreres via webhook (signatur og firma tjekkes) og når kunden kommer tilbage. Fakturaen markeres "Betalt online"; udbetalingen fra Stripe registreres i e-conomic af bogholderen.
+- **Depositum ved onlinebooking:** beløb under Indstillinger → Betaling. Kunden betaler efter bookingen; linket står også i bekræftelsen. Kalenderen viser "betalt online/ikke betalt". Bookingen er gyldig, selv om depositum ikke er betalt – personalet vurderer.
+- **Test:** mod en simuleret Stripe (formular-kodede kald som api.stripe.com, webhook med rigtig HMAC-signatur). Ikke afprøvet mod en rigtig Stripe-konto endnu.

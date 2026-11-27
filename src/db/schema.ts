@@ -755,6 +755,8 @@ export const bookingSettings = pgTable("booking_settings", {
   cancelHours: integer("cancel_hours").notNull().default(24),
   /** Tekst øverst på bookingsiden. */
   intro: text("intro"),
+  /** Depositum ved onlinebooking i øre (kræver Stripe). Null = intet depositum. */
+  depositOre: integer("deposit_ore"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -824,6 +826,9 @@ export const bookings = pgTable(
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
     serviceName: text("service_name").notNull(),
     priceOre: integer("price_ore").notNull().default(0),
+    /** Depositum, kunden skal betale online (øre), og hvornår det er betalt. */
+    depositOre: integer("deposit_ore"),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     status: bookingStatusEnum("status").notNull().default("CONFIRMED"),
@@ -1145,6 +1150,8 @@ export const invoices = pgTable(
     token: text("token").notNull().unique(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    /** Hvordan betalingen blev registreret: "economic", "stripe" eller "manual". */
+    paidVia: text("paid_via"),
     syncedAt: timestamp("synced_at", { withTimezone: true }),
     /** Sat mens fakturaen bogføres, så et dobbeltklik ikke bogfører den to gange. */
     lockedAt: timestamp("locked_at", { withTimezone: true }),
@@ -1159,3 +1166,22 @@ export const invoices = pgTable(
     uniqueIndex("invoices_workspace_number_idx").on(t.workspaceId, t.economicNumber),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Betaling med kort og MobilePay via Stripe (én Stripe-konto pr. firma).
+// ---------------------------------------------------------------------------
+
+export const stripeConnections = pgTable("stripe_connections", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Stripes hemmelige nøgle (krypteret). */
+  secretKeyEnc: text("secret_key_enc").notNull(),
+  /** Webhook, som Kundespor selv har oprettet hos Stripe, og dens signeringsnøgle (krypteret). */
+  webhookEndpointId: text("webhook_endpoint_id"),
+  webhookSecretEnc: text("webhook_secret_enc"),
+  accountName: text("account_name"),
+  livemode: boolean("livemode").notNull().default(false),
+  connectedById: uuid("connected_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

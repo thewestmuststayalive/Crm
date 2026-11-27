@@ -130,6 +130,10 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
   const vars = { navn: first, ydelse: booking.serviceName, tid: when, firma: ws.name };
   const contactLine = ws.phone ? `Spørgsmål? Ring på ${ws.phone}.` : "Har du spørgsmål, så svar gerne på denne e-mail.";
   const cancelLine = `Kan du ikke komme, så aflys senest ${ctx.cancelHours ?? 24} timer før via knappen herunder.`;
+  const depositLine =
+    booking.depositOre && !booking.depositPaidAt
+      ? `Betal depositum på ${formatOre(booking.depositOre)} med MobilePay eller kort her: ${await getAppUrl()}/book/betal/${booking.token}`
+      : null;
 
   const content = {
     confirmation: {
@@ -164,7 +168,13 @@ export async function sendBookingEmail(bookingId: string, kind: MailKind) {
     ...brandedEmail({
       ...(await emailBrand(booking.workspaceId)),
       heading: content.heading,
-      paragraphs: [content.intro, details(ctx).join("\n"), ...(content.button ? [cancelLine] : []), contactLine],
+      paragraphs: [
+        content.intro,
+        details(ctx).join("\n"),
+        ...(depositLine && kind !== "cancelled" ? [depositLine] : []),
+        ...(content.button ? [cancelLine] : []),
+        contactLine,
+      ],
       button: content.button ? { label: "Se eller aflys din tid", url } : undefined,
       footer: `Sendt af ${ws.name}.`,
     }),

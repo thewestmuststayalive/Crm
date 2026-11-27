@@ -115,6 +115,16 @@ export default async function BookingPage({ params }: PageProps<"/kalender/[id]"
                 )}
               </DetailRow>
               <DetailRow label="Pris">{formatOre(booking.priceOre)}</DetailRow>
+              {booking.depositOre ? (
+                <DetailRow label="Depositum">
+                  {formatOre(booking.depositOre)} –{" "}
+                  {booking.depositPaidAt ? (
+                    <span className="font-medium text-emerald-700">betalt online</span>
+                  ) : (
+                    <span className="font-medium text-amber-700">ikke betalt</span>
+                  )}
+                </DetailRow>
+              ) : null}
               <DetailRow label="Varighed">{minutes} min</DetailRow>
               <DetailRow label="Booket">
                 {booking.source === "ONLINE" ? "Online af kunden" : `Af ${createdBy ?? "personalet"}`},{" "}
