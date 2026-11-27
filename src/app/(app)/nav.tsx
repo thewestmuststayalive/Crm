@@ -12,6 +12,7 @@ export const NAV_ITEMS: { href: string; label: string; also?: string[]; module?:
   { href: "/kalender", label: "Kalender", also: ["/biler"], module: "booking" },
   { href: "/opgaver", label: "Opgaver" },
   { href: "/fakturaer", label: "Fakturaer" },
+  { href: "/aftaler", label: "Faste aftaler" },
   { href: "/projekter", label: "Projekter", module: "agency" },
   { href: "/tid", label: "Tid", module: "agency" },
   { href: "/indbakke", label: "Indbakke" },

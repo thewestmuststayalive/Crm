@@ -129,6 +129,90 @@ function economic(
   return send(404, { message: `e-conomic-mock kender ikke ${method} ${path}` });
 }
 
+// ---------------------------------------------------------------------------
+// Falsk Stripe API (formular-kodede kald, JSON-svar som api.stripe.com)
+// ---------------------------------------------------------------------------
+
+type StripeSession = {
+  id: string;
+  url: string;
+  payment_status: string;
+  status: string;
+  amount_total: number;
+  currency: string;
+  metadata: Record<string, string>;
+  success_url: string;
+  customer_email: string | null;
+};
+
+export const stripeState = {
+  sessions: new Map<string, StripeSession>(),
+  webhooks: [] as { id: string; url: string; events: string[] }[],
+  counter: 0,
+};
+
+function stripe(
+  method: string,
+  url: URL,
+  raw: string,
+  headers: import("node:http").IncomingHttpHeaders,
+  res: import("node:http").ServerResponse,
+) {
+  const send = (status: number, data: unknown) => {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(data));
+  };
+  if (headers.authorization !== "Bearer sk_test_kundespor123456") {
+    return send(401, { error: { message: "Invalid API Key provided" } });
+  }
+  const path = url.pathname.replace("/stripe-api", "");
+  const form = new URLSearchParams(raw);
+  if (method === "GET" && path === "/v1/account") {
+    return send(200, { id: "acct_test", settings: { dashboard: { display_name: "Testfirma Betaling" } } });
+  }
+  if (method === "POST" && path === "/v1/webhook_endpoints") {
+    const hook = { id: `we_test_${++stripeState.counter}`, url: form.get("url") ?? "", events: form.getAll("enabled_events[]") };
+    stripeState.webhooks.push(hook);
+    return send(200, { id: hook.id, secret: "whsec_test_secret", livemode: false, url: hook.url });
+  }
+  const hookMatch = path.match(/^\/v1\/webhook_endpoints\/(we_test_\d+)$/);
+  if (method === "DELETE" && hookMatch) {
+    stripeState.webhooks = stripeState.webhooks.filter((h) => h.id !== hookMatch[1]);
+    return send(200, { id: hookMatch[1], deleted: true });
+  }
+  if (method === "GET" && path === "/v1/__webhooks") return send(200, stripeState.webhooks);
+  if (method === "POST" && path === "/v1/checkout/sessions") {
+    if (form.get("mode") !== "payment" || form.get("line_items[0][price_data][currency]") !== "dkk") {
+      return send(400, { error: { message: "bad params" } });
+    }
+    const id = `cs_test_${String(++stripeState.counter).padStart(12, "0")}`;
+    const metadata: Record<string, string> = {};
+    for (const [k, v] of form) {
+      const m = k.match(/^metadata\[(\w+)\]$/);
+      if (m) metadata[m[1]] = v;
+    }
+    const session: StripeSession = {
+      id,
+      url: `${META_MOCK_URL}/stripe-checkout/${id}`,
+      payment_status: "unpaid",
+      status: "open",
+      amount_total: Number(form.get("line_items[0][price_data][unit_amount]")) * Number(form.get("line_items[0][quantity]")),
+      currency: "dkk",
+      metadata,
+      success_url: form.get("success_url") ?? "",
+      customer_email: form.get("customer_email"),
+    };
+    stripeState.sessions.set(id, session);
+    return send(200, session);
+  }
+  const sessionMatch = path.match(/^\/v1\/checkout\/sessions\/(cs_test_\w+)$/);
+  if (method === "GET" && sessionMatch) {
+    const session = stripeState.sessions.get(sessionMatch[1]);
+    return session ? send(200, session) : send(404, { error: { message: "No such checkout.session" } });
+  }
+  return send(404, { error: { message: `stripe-mock kender ikke ${method} ${path}` } });
+}
+
 export function startMetaMock(): Promise<Server> {
   const log: Logged[] = [];
   let outCounter = 0;
@@ -138,7 +222,12 @@ export function startMetaMock(): Promise<Server> {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
     const raw = Buffer.concat(chunks).toString("utf8");
-    const body = raw ? JSON.parse(raw) : null;
+    let body = null;
+    try {
+      body = raw ? JSON.parse(raw) : null;
+    } catch {
+      body = raw; // fx formular-kodet (Stripe)
+    }
     const query = Object.fromEntries(url.searchParams);
     const path = url.pathname.replace(/^\/v[\d.]+/, "");
     const send = (status: number, data: unknown) => {
@@ -160,6 +249,28 @@ export function startMetaMock(): Promise<Server> {
       return res.end();
     }
     if (url.pathname.startsWith("/economic-api/")) return economic(req.method ?? "GET", url, body, req.headers, res);
+    if (url.pathname.startsWith("/stripe-api/")) return stripe(req.method ?? "GET", url, raw, req.headers, res);
+    if (url.pathname.startsWith("/gatewayapi/")) {
+      // Falsk GatewayAPI (SMS)
+      if (req.headers.authorization !== "Token test-sms-token-1234567890") {
+        return send(401, { code: "0x0229", message: "Invalid token" });
+      }
+      if (req.method === "GET" && url.pathname === "/gatewayapi/rest/me") return send(200, { credit: 100, currency: "DKK", id: 1 });
+      if (req.method === "POST" && url.pathname === "/gatewayapi/rest/mtsms") {
+        const ok = body?.sender && body?.message && Array.isArray(body?.recipients) && typeof body.recipients[0]?.msisdn === "number";
+        return ok ? send(200, { ids: [log.length], usage: { total_cost: 0.3, currency: "DKK" } }) : send(422, { message: "bad request" });
+      }
+      return send(404, { message: "not found" });
+    }
+    if (url.pathname.startsWith("/stripe-checkout/")) {
+      // Falsk betalingsside: kunden "betaler" straks og sendes tilbage.
+      const session = stripeState.sessions.get(url.pathname.split("/").pop() ?? "");
+      if (!session) return send(404, { error: "no session" });
+      session.payment_status = "paid";
+      session.status = "complete";
+      res.writeHead(302, { Location: session.success_url.replace("{CHECKOUT_SESSION_ID}", session.id) });
+      return res.end();
+    }
 
     const key = `${req.method} ${path}`;
     switch (key) {

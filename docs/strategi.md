@@ -203,3 +203,24 @@ Inspireret af Clientflow (clientflow.nu). Plan: 1) fakturering, 2) MobilePay/kor
 - **Status:** kladde, kladde i e-conomic, sendt, forfalden, betalt. Betaling hentes fra e-conomic (restbeløb 0) dagligt eller med en knap; notifikation "Faktura X er betalt".
 - **Sikkerhed:** kun administratorer bogfører; dobbeltklik er låst; kladder er ikke offentlige; e-conomic-forbindelsen kan kun gemmes, når administratoren selv har startet den (cookie).
 - **Test:** læse-endpoints og filtre er afprøvet mod e-conomics rigtige demo-API. Oprettelse og bogføring er testet mod en simulering, fordi demoen er skrivebeskyttet.
+
+## 11. Betaling med MobilePay og kort via Stripe (nov. 2026) – del 2 af 4
+
+- **Forbindelse:** Indstillinger → Betaling. Hvert firma indsætter sin Stripe-nøgle (krypteret). Kundespor opretter selv webhooken hos Stripe og gemmer dens signeringsnøgle krypteret.
+- **Fakturaer:** kundens fakturaside får "Betal med MobilePay eller kort" (Stripe Checkout; betalingsmetoder styres i Stripes dashboard). Betalingen registreres via webhook (signatur og firma tjekkes) og når kunden kommer tilbage. Fakturaen markeres "Betalt online"; udbetalingen fra Stripe registreres i e-conomic af bogholderen.
+- **Depositum ved onlinebooking:** beløb under Indstillinger → Betaling. Kunden betaler efter bookingen; linket står også i bekræftelsen. Kalenderen viser "betalt online/ikke betalt". Bookingen er gyldig, selv om depositum ikke er betalt – personalet vurderer.
+- **Test:** mod en simuleret Stripe (formular-kodede kald som api.stripe.com, webhook med rigtig HMAC-signatur). Ikke afprøvet mod en rigtig Stripe-konto endnu.
+
+## 12. SMS om bookinger via GatewayAPI (nov. 2026) – del 3 af 4
+
+- **Opsætning:** Indstillinger → SMS (kun med Booking-modulet). API-nøgle (tjekkes mod `/rest/me`, gemmes krypteret), afsendernavn (2–11 tegn a–z/tal), til/fra for bekræftelse og påmindelse, loft over SMS-dele pr. måned, test-SMS.
+- **Afsendelse:** bekræftelse ved onlinebooking og manuel booking med "send bekræftelse"; påmindelse dagen før i den daglige kørsel. Danske 8-cifrede numre får +45. Hver besked sendes højst én gang pr. booking (unik række i `sms_log`), og loftet tjekkes før afsendelse. Loggen gemmer ikke telefonnumre.
+- **Lov:** kun servicebeskeder om en booking kunden selv har lavet – ingen reklame-SMS (markedsføringsloven § 10).
+- **Test:** GatewayAPI's EU-adresse og fejlformat er afprøvet live (401 med ugyldig nøgle); afsendelse er testet mod en simulering.
+
+## 13. Faste aftaler og abonnementer (nov. 2026) – del 4 af 4
+
+- **Aftale:** kunde (virksomhed og/eller kontakt), linjer pr. gang (ekskl. moms), interval (hver n. uge/måned), første dato, slutdato, sæson (måneder), årlig prisregulering (% i en valgt måned), fast booking (ydelse + tidspunkt) og fakturering (ingen / kladde / bogfør og send via e-conomic). Kun administratorer.
+- **Daglig kørsel:** bookinger oprettes en uge før (kunden får bekræftelse på e-mail/SMS); fakturaer på datoen. Hver periode udføres højst én gang (`agreement_runs` unik pr. periode). Uden for sæsonen springes perioden over og logges. Er tiden optaget, oprettes ingen dobbeltbooking – den ansvarlige får en notifikation. Fejler automatisk fakturering, bliver fakturaen en kladde og der kommer en notifikation.
+- **Oversigt:** /aftaler med anslået månedlig omsætning; aftaler vises på kunden og virksomheden; "Udfør næste periode nu".
+- **Ikke med:** forudfakturering af en hel sæson og automatisk kortbetaling af abonnementer (MobilePay via Stripe er engangsbetaling).

@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { getPublicSlots, submitPublicBooking, type PublicBookingState } from "@/app/actions/booking-public";
 import { Field, FormMessage, Input, SubmitButton, Textarea } from "@/components/ui";
 import { cx } from "@/components/styles";
+import { PayButton } from "@/app/faktura/[token]/pay-button";
+import { formatOre } from "@/lib/quote-math";
 
 type ServiceOption = { id: string; name: string; description: string | null; duration: string; price: string | null };
 
@@ -65,6 +67,14 @@ export function BookingForm({
             ? "Du har fået en bekræftelse på e-mail med et link, hvis du skal aflyse."
             : `Gem gerne tidspunktet. Kontakt ${companyName}, hvis du skal aflyse.`}
         </p>
+        {state.booked.deposit && (
+          <div className="mt-4 space-y-2 border-t border-emerald-200 pt-4">
+            <p className="text-sm font-medium">
+              Betal venligst depositum på {formatOre(state.booked.deposit.ore)}. Det trækkes fra prisen.
+            </p>
+            <PayButton token={state.booked.deposit.token} kind="deposit" label="Betal depositum med MobilePay eller kort" />
+          </div>
+        )}
       </section>
     );
   }

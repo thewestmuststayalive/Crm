@@ -150,10 +150,14 @@ export async function getPublicInvoice(token: string) {
 }
 
 /** Markerer en faktura som betalt og giver den, der oprettede den, besked. */
-export async function markInvoicePaid(workspaceId: string, invoiceId: string) {
+export async function markInvoicePaid(
+  workspaceId: string,
+  invoiceId: string,
+  via: "economic" | "stripe" | "manual" = "economic",
+) {
   const [paid] = await db
     .update(schema.invoices)
-    .set({ status: "PAID", paidAt: new Date(), remainderOre: 0, updatedAt: new Date() })
+    .set({ status: "PAID", paidAt: new Date(), paidVia: via, remainderOre: 0, updatedAt: new Date() })
     .where(
       and(
         eq(schema.invoices.workspaceId, workspaceId),
@@ -167,7 +171,7 @@ export async function markInvoicePaid(workspaceId: string, invoiceId: string) {
     workspaceId,
     to: paid.createdById ? { userIds: [paid.createdById] } : "admins",
     type: "INVOICE_PAID",
-    title: `Faktura ${paid.number ?? ""} er betalt`.replace("  ", " "),
+    title: `Faktura ${paid.number ?? ""} er betalt${via === "stripe" ? " online" : ""}`.replace("  ", " "),
     href: `/fakturaer/${invoiceId}`,
   });
   return true;
@@ -188,7 +192,7 @@ export async function syncInvoice(workspaceId: string, invoiceId: string) {
     .update(schema.invoices)
     .set({ remainderOre: booked.remainderOre, dueDate: booked.dueDate, syncedAt: new Date() })
     .where(eq(schema.invoices.id, inv.id));
-  if (booked.remainderOre <= 0) await markInvoicePaid(workspaceId, inv.id);
+  if (booked.remainderOre <= 0) await markInvoicePaid(workspaceId, inv.id, "economic");
   return booked;
 }
 

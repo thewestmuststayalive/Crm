@@ -42,6 +42,8 @@ export async function exportWorkspace(workspaceId: string) {
     conversations,
     prospectLists,
     prospects,
+    invoices,
+    agreements,
   ] = await Promise.all([
     db
       .select({ name: schema.users.name, email: schema.users.email, role: schema.memberships.role })
@@ -67,6 +69,8 @@ export async function exportWorkspace(workspaceId: string) {
     db.select().from(schema.conversations).where(byWs(schema.conversations)),
     db.select().from(schema.prospectLists).where(byWs(schema.prospectLists)),
     db.select().from(schema.prospects).where(byWs(schema.prospects)),
+    db.select().from(schema.invoices).where(byWs(schema.invoices)),
+    db.select().from(schema.agreements).where(byWs(schema.agreements)),
   ]);
   const quoteLines = quotes.length
     ? await db
@@ -113,6 +117,8 @@ export async function exportWorkspace(workspaceId: string) {
     biler: vehicles,
     leadlister: prospectLists,
     leads: prospects,
+    fakturaer: strip(invoices, ["token", "lockedAt"]),
+    fasteAftaler: agreements,
     bookinger: strip(bookings, ["token", "ipHash"]),
     tidsregistreringer: timeEntries,
     retainers,

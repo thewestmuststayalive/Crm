@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
@@ -8,26 +8,14 @@ import { db, schema } from "@/db";
 import type { InvoiceLine } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireRole, requireWorkspace } from "@/lib/auth";
-import { emailBrand, emailText } from "@/lib/branding";
-import { getCompany, getContact, getDeal, logEvent } from "@/lib/crm";
+import { getCompany, getContact, getDeal } from "@/lib/crm";
 import { formatMonth, isMonth, monthRange } from "@/lib/duration";
-import {
-  bookDraftInvoice,
-  createDraftInvoice,
-  EconomicError,
-  ensureCustomer,
-  getEconomicConnection,
-  getInvoicePdf,
-  isReadOnlyPlan,
-  missingSettings,
-  type Recipient,
-} from "@/lib/economic";
-import { brandedEmail, isEmailConfigured, sendEmail } from "@/lib/email";
+import { EconomicError } from "@/lib/economic";
+import { isEmailConfigured } from "@/lib/email";
+import { bookAndSendInvoice, emailInvoice } from "@/lib/invoice-booking";
 import { getInvoice, markInvoicePaid, newInvoiceToken, syncInvoice } from "@/lib/invoices";
-import { formatIsoDate, todayIso } from "@/lib/labels";
-import { formatOre } from "@/lib/quote-math";
+import { formatIsoDate } from "@/lib/labels";
 import { getEntries, usageByCompany } from "@/lib/time-tracking";
-import { getAppUrl } from "@/lib/url";
 import { isUuid } from "@/lib/validation";
 import type { ActionState } from "./types";
 
@@ -272,82 +260,6 @@ export async function deleteInvoice(formData: FormData) {
 // Bogfør og send
 // ---------------------------------------------------------------------------
 
-async function recipientFor(workspaceId: string, invoice: { companyId: string | null; contactId: string | null }) {
-  if (invoice.companyId) {
-    const c = await getCompany(workspaceId, invoice.companyId);
-    if (c) {
-      return {
-        kind: "company" as const,
-        id: c.id,
-        recipient: {
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          address: c.address,
-          cvr: c.cvr,
-          customerNumber: c.economicCustomerNumber,
-        } satisfies Recipient,
-      };
-    }
-  }
-  if (invoice.contactId) {
-    const p = await getContact(workspaceId, invoice.contactId);
-    if (p) {
-      return {
-        kind: "contact" as const,
-        id: p.id,
-        recipient: {
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-          address: null,
-          cvr: null,
-          customerNumber: p.economicCustomerNumber,
-        } satisfies Recipient,
-      };
-    }
-  }
-  return null;
-}
-
-/** Sender fakturaen til kunden på e-mail med PDF'en vedhæftet og et link til fakturasiden. */
-async function emailInvoice(workspace: { id: string; name: string }, invoiceId: string) {
-  const [inv] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, invoiceId)).limit(1);
-  if (!inv?.email || !inv.economicNumber || !isEmailConfigured()) return false;
-  const conn = await getEconomicConnection(workspace.id);
-  if (!conn) return false;
-  const pdf = Buffer.from(await getInvoicePdf(conn, inv.economicNumber)).toString("base64");
-  const recipient = await recipientFor(workspace.id, inv);
-  const firstName = recipient?.kind === "contact" ? recipient.recipient.name.split(" ")[0] : null;
-  const url = `${await getAppUrl()}/faktura/${inv.token}`;
-  const amount = formatOre(inv.grossOre ?? 0);
-  const result = await sendEmail({
-    to: inv.email,
-    subject: `Faktura ${inv.economicNumber} fra ${workspace.name}`,
-    attachments: [{ filename: `Faktura-${inv.economicNumber}.pdf`, content: pdf }],
-    ...brandedEmail({
-      ...(await emailBrand(workspace.id)),
-      heading: firstName ? `Hej ${firstName}` : `Faktura ${inv.economicNumber}`,
-      paragraphs: [
-        await emailText(workspace.id, "invoiceSent", {
-          navn: firstName ?? "",
-          nummer: String(inv.economicNumber),
-          beløb: amount,
-          forfald: inv.dueDate ? formatIsoDate(inv.dueDate) : "",
-          firma: workspace.name,
-        }),
-        "Fakturaen er vedhæftet som PDF. Du kan også se den online via knappen herunder.",
-      ],
-      button: { label: "Se fakturaen", url },
-      footer: `Sendt af ${workspace.name} via Kundespor.`,
-    }),
-  });
-  if (result.sent) {
-    await db.update(schema.invoices).set({ sentAt: new Date() }).where(eq(schema.invoices.id, inv.id));
-  }
-  return result.sent;
-}
-
 /**
  * Lægger fakturaen i e-conomic (opretter kunden, hvis den mangler). Med mode "send" bogføres
  * den også og sendes til kunden. Kun administratorer.
@@ -359,148 +271,31 @@ export async function bookInvoice(_prev: ActionState, formData: FormData): Promi
   const mode = formData.get("mode") === "draft" ? "draft" : "send";
   const row = await getInvoice(workspace.id, id);
   if (!row) notFound();
-  let invoice = row.invoice;
+  const invoice = row.invoice;
   if (invoice.status !== "DRAFT" && invoice.status !== "ECONOMIC_DRAFT") {
     return { error: "Fakturaen er allerede bogført." };
   }
-
   // Gem først de seneste rettelser fra formularen.
   if (invoice.status === "DRAFT") {
     const parsed = parseDraft(formData);
     if (!parsed.success) return { error: parsed.error.issues[0].message };
-    invoice = {
-      ...invoice,
-      heading: parsed.data.heading || null,
-      email: parsed.data.email || null,
-      lines: parsed.data.lines,
-    };
-    await db
-      .update(schema.invoices)
-      .set({ heading: invoice.heading, email: invoice.email, lines: invoice.lines, updatedAt: new Date() })
-      .where(eq(schema.invoices.id, invoice.id));
-  }
-
-  const conn = await getEconomicConnection(workspace.id);
-  if (!conn) return { error: "Forbind e-conomic under Indstillinger → Regnskab først." };
-  if (isReadOnlyPlan(conn.planLevel)) {
-    return {
-      error:
-        "Jeres e-conomic-abonnement tillader ikke, at andre programmer opretter fakturaer. Det kræver e-conomic Plus eller højere.",
-    };
-  }
-  const missing = missingSettings(conn.settings);
-  if (missing.length) return { error: `Vælg ${missing.join(", ")} under Indstillinger → Regnskab først.` };
-  const target = await recipientFor(workspace.id, invoice);
-  if (!target) return { error: "Fakturaen mangler en kunde." };
-
-  // Lås fakturaen, så et dobbeltklik ikke bogfører den to gange.
-  const [locked] = await db
-    .update(schema.invoices)
-    .set({ lockedAt: new Date() })
-    .where(
-      and(
-        eq(schema.invoices.id, invoice.id),
-        or(isNull(schema.invoices.lockedAt), lt(schema.invoices.lockedAt, new Date(Date.now() - 120_000))),
-      ),
-    )
-    .returning({ id: schema.invoices.id });
-  if (!locked) return { error: "Fakturaen er ved at blive bogført. Vent et øjeblik." };
-
-  let done = false;
-  try {
-    let draftNumber = invoice.economicDraftNumber;
-    if (invoice.status === "DRAFT" || !draftNumber) {
-      const customerNumber = await ensureCustomer(conn, target.recipient);
-      if (customerNumber !== target.recipient.customerNumber) {
-        const table = target.kind === "company" ? schema.companies : schema.contacts;
-        await db
-          .update(table)
-          .set({ economicCustomerNumber: customerNumber })
-          .where(and(eq(table.workspaceId, workspace.id), eq(table.id, target.id)));
-      }
-      const draft = await createDraftInvoice(conn, {
-        customerNumber,
-        recipient: target.recipient,
-        date: todayIso(),
-        heading: invoice.heading,
-        lines: invoice.lines,
-      });
-      draftNumber = draft.draftNumber;
-      await db
-        .update(schema.invoices)
-        .set({
-          status: "ECONOMIC_DRAFT",
-          economicDraftNumber: draft.draftNumber,
-          date: todayIso(),
-          netOre: draft.netOre,
-          vatOre: draft.vatOre,
-          grossOre: draft.grossOre,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.invoices.id, invoice.id));
-    }
-    if (mode === "draft") {
-      await audit(workspace.id, user.id, "Lagde faktura i e-conomic som kladde", `Kladde ${draftNumber}`);
-      revalidatePath(`/fakturaer/${invoice.id}`);
-      return { success: `Kladden ligger nu i e-conomic (kladde ${draftNumber}).` };
-    }
-
-    let booked;
-    try {
-      booked = await bookDraftInvoice(conn, draftNumber);
-    } catch (error) {
-      if (error instanceof EconomicError && error.status === 404) {
-        // Kladden er slettet i e-conomic: start forfra med en ny kladde.
-        await db
-          .update(schema.invoices)
-          .set({ status: "DRAFT", economicDraftNumber: null })
-          .where(eq(schema.invoices.id, invoice.id));
-        return { error: "Kladden findes ikke længere i e-conomic. Prøv igen – så oprettes en ny." };
-      }
-      throw error;
-    }
     await db
       .update(schema.invoices)
       .set({
-        status: booked.remainderOre <= 0 ? "PAID" : "BOOKED",
-        economicNumber: booked.number,
-        date: booked.date,
-        dueDate: booked.dueDate,
-        netOre: booked.netOre,
-        vatOre: booked.vatOre,
-        grossOre: booked.grossOre,
-        remainderOre: booked.remainderOre,
-        syncedAt: new Date(),
+        heading: parsed.data.heading || null,
+        email: parsed.data.email || null,
+        lines: parsed.data.lines,
         updatedAt: new Date(),
       })
       .where(eq(schema.invoices.id, invoice.id));
-
-    let emailed = false;
-    try {
-      emailed = await emailInvoice(workspace, invoice.id);
-    } catch (error) {
-      console.error("Faktura-mail fejlede", error);
-    }
-    await logEvent(
-      workspace.id,
-      user.id,
-      `Faktura ${booked.number} på ${formatOre(booked.grossOre)} bogført${emailed ? ` og sendt til ${invoice.email}` : ""}`,
-      { dealId: invoice.dealId, contactId: invoice.contactId, companyId: invoice.companyId },
-    );
-    await audit(workspace.id, user.id, "Bogførte faktura", `Faktura ${booked.number}, ${formatOre(booked.grossOre)}`);
-    revalidatePath(`/fakturaer/${invoice.id}`);
-    revalidatePath("/fakturaer");
-    done = true;
-  } catch (error) {
-    if (error instanceof EconomicError) return { error: error.message };
-    console.error("Bogføring fejlede", error);
-    return { error: "Noget gik galt. Prøv igen om lidt." };
-  } finally {
-    await db.update(schema.invoices).set({ lockedAt: null }).where(eq(schema.invoices.id, invoice.id));
   }
+  const result = await bookAndSendInvoice({ workspace, userId: user.id, invoiceId: invoice.id, mode });
+  revalidatePath(`/fakturaer/${invoice.id}`);
+  revalidatePath("/fakturaer");
+  if (!result.ok) return { error: result.error };
+  if (mode === "draft") return { success: `Kladden ligger nu i e-conomic (kladde ${result.draftNumber}).` };
   // Siden viser selv, om fakturaen er bogført og sendt.
-  if (done) redirect(`/fakturaer/${invoice.id}?bogfoert=1`);
-  return {};
+  redirect(`/fakturaer/${invoice.id}?bogfoert=1`);
 }
 
 export async function resendInvoice(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -540,7 +335,7 @@ export async function markPaid(formData: FormData) {
   const { user, workspace } = await requireRole("ADMIN");
   const id = formData.get("id");
   if (!isUuid(id)) notFound();
-  if (await markInvoicePaid(workspace.id, id)) {
+  if (await markInvoicePaid(workspace.id, id, "manual")) {
     await audit(workspace.id, user.id, "Markerede faktura som betalt", id);
   }
   revalidatePath(`/fakturaer/${id}`);

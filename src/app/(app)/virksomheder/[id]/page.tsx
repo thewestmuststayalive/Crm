@@ -6,6 +6,7 @@ import { deleteCompany } from "@/app/actions/companies";
 import { ActivityForm } from "@/components/activity-form";
 import { DetailRow, PageHeader, StatusBadge } from "@/components/display";
 import { CreateInvoiceButton, InvoiceList } from "@/components/invoice-widgets";
+import { AgreementList } from "@/components/agreement-list";
 import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
@@ -141,6 +142,9 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
               <CustomFieldRows fields={customFields} values={company.custom} />
               <DetailRow label="Ansvarlig">{ownerName}</DetailRow>
             </dl>
+          </Card>
+          <Card title="Faste aftaler">
+            <AgreementList workspaceId={workspace.id} filter={{ companyId: company.id }} newHref={`/aftaler/ny?virksomhed=${company.id}`} />
           </Card>
           <Card title="Fakturaer">
             <InvoiceList workspaceId={workspace.id} filter={{ companyId: company.id }} />

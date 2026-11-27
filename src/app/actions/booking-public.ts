@@ -12,6 +12,8 @@ import { findExistingContact } from "@/lib/leads";
 import { notify } from "@/lib/notify";
 import { isIsoDate, isTime, zonedToUtc } from "@/lib/time";
 import type { ActionState } from "./types";
+import { sendBookingSms } from "@/lib/sms";
+import { getStripeConnection } from "@/lib/stripe";
 
 // Offentlige handlinger på bookingsiden og aflysningssiden. Kunden er ikke logget ind:
 // bookinglinket (firmaets nøgle) og aflysningslinket (192-bit token) er adgangen.
@@ -51,7 +53,9 @@ const bookingSchema = z.object({
   note: z.string().trim().max(1000),
 });
 
-export type PublicBookingState = ActionState & { booked?: { service: string; when: string; emailed: boolean } };
+export type PublicBookingState = ActionState & {
+  booked?: { service: string; when: string; emailed: boolean; deposit?: { ore: number; token: string } };
+};
 
 const VALUE_KEYS = ["name", "phone", "email", "plate", "car", "note"] as const;
 
@@ -129,8 +133,15 @@ export async function submitPublicBooking(_prev: PublicBookingState, formData: F
     href: `/kalender/${booking.id}`,
     email: true,
   });
+  // Depositum: kræver at firmaet har forbundet Stripe.
+  let deposit: { ore: number; token: string } | undefined;
+  if (pub.settings.depositOre && pub.settings.depositOre > 0 && (await getStripeConnection(workspaceId))) {
+    await db.update(schema.bookings).set({ depositOre: pub.settings.depositOre }).where(eq(schema.bookings.id, booking.id));
+    deposit = { ore: pub.settings.depositOre, token: booking.token };
+  }
   const emailed = await sendBookingEmail(booking.id, "confirmation");
-  return { success: "Din tid er booket.", booked: { service: service.name, when, emailed } };
+  await sendBookingSms(booking.id, "confirmation").catch((e) => console.error("SMS fejlede", e));
+  return { success: "Din tid er booket.", booked: { service: service.name, when, emailed, deposit } };
 }
 
 /** Kunden aflyser selv via linket i bekræftelsen. */

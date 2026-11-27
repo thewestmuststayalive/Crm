@@ -59,6 +59,12 @@ export default async function InvoicePage({ params, searchParams }: PageProps<"/
         </p>
       )}
 
+      {inv.status === "PAID" && inv.paidVia !== "economic" && (
+        <p className="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          Betalingen er registreret i Kundespor. Husk at registrere den i e-conomic, så bogføringen stemmer.
+        </p>
+      )}
+
       {editable ? (
         <Card title={`Faktura til ${customer}`}>
           {!economicReady && (
@@ -113,7 +119,11 @@ export default async function InvoicePage({ params, searchParams }: PageProps<"/
               <DetailRow label="Beløb inkl. moms">{inv.grossOre !== null ? formatOre(inv.grossOre) : null}</DetailRow>
               <DetailRow label="Heraf moms">{inv.vatOre !== null ? formatOre(inv.vatOre) : null}</DetailRow>
               <DetailRow label="Mangler at betale">
-                {inv.status === "PAID" ? "Betalt" : inv.remainderOre !== null ? formatOre(inv.remainderOre) : null}
+                {inv.status === "PAID"
+                  ? `Betalt${inv.paidVia === "stripe" ? " online (MobilePay/kort)" : inv.paidVia === "manual" ? " (markeret manuelt)" : ""}`
+                  : inv.remainderOre !== null
+                    ? formatOre(inv.remainderOre)
+                    : null}
               </DetailRow>
               <DetailRow label="Sendt">
                 {inv.sentAt ? `${formatIsoDate(inv.sentAt.toISOString().slice(0, 10))} til ${inv.email}` : "Ikke sendt på e-mail"}

@@ -17,6 +17,7 @@ import { getModules } from "@/lib/modules";
 import { ActivityForm } from "@/components/activity-form";
 import { Badge, DetailRow, PageHeader, SourceBadge, StatusBadge } from "@/components/display";
 import { CreateInvoiceButton, InvoiceList } from "@/components/invoice-widgets";
+import { AgreementList } from "@/components/agreement-list";
 import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton, SubmitButton } from "@/components/ui";
@@ -174,6 +175,9 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
             </>
           )}
           <DealsCard deals={deals} newHref={`/pipeline/ny?kontakt=${contact.id}`} />
+          <Card title="Faste aftaler">
+            <AgreementList workspaceId={workspace.id} filter={{ contactId: contact.id }} newHref={`/aftaler/ny?kontakt=${contact.id}`} />
+          </Card>
           <Card title="Fakturaer">
             <InvoiceList workspaceId={workspace.id} filter={{ contactId: contact.id }} />
           </Card>

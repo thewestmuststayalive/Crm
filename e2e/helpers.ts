@@ -58,3 +58,62 @@ export async function emailsTo(request: APIRequestContext, to: string) {
   const log = (await res.json()) as { method: string; path: string; body: SentEmail }[];
   return log.filter((r) => r.method === "POST" && r.path === "/emails" && r.body.to === to).map((r) => r.body);
 }
+
+/** Slår booking til, opretter en ydelse og åbner alle dage 8–16 uden varsel. Returnerer bookinglinket. */
+export async function setupBooking(page: Page, service: string, price = "800") {
+  await page.goto("/indstillinger");
+  await page.getByLabel(/Booking og biler/).check();
+  await page.getByRole("button", { name: "Gem moduler" }).click();
+  await expect(page.getByRole("status")).toContainText("Modulerne er gemt");
+  await page.goto("/indstillinger/booking");
+  const add = page.locator("form", { hasText: "Ny ydelse" });
+  await add.getByLabel("Navn på ydelse").fill(service);
+  await add.getByLabel("Varighed i minutter").fill("60");
+  await add.getByLabel("Pris i kr. inkl. moms").fill(price);
+  await add.getByRole("button", { name: "Tilføj ydelse" }).click();
+  await expect(page.getByRole("status")).toContainText(`Ydelsen "${service}" er oprettet`);
+  for (const day of ["Lørdag", "Søndag"]) {
+    await page.getByLabel(day, { exact: true }).check();
+    await page.getByLabel(`${day} fra`).fill("08:00");
+    await page.getByLabel(`${day} til`).fill("16:00");
+  }
+  await page.getByLabel("Kunden skal booke mindst (timer før)").fill("0");
+  await page.getByRole("button", { name: "Gem", exact: true }).last().click();
+  await expect(page.getByText("Gemt.", { exact: true })).toBeVisible();
+  return page.getByRole("textbox", { name: "Bookinglink" }).inputValue();
+}
+
+/** En kunde (ikke logget ind) booker ydelsen om `dayIndex` dage kl. `time`. */
+export async function bookAsCustomer(
+  browser: import("@playwright/test").Browser,
+  link: string,
+  c: { service: string; name: string; phone: string; email: string; dayIndex?: number; time?: string },
+) {
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const p = await ctx.newPage();
+  await p.goto(link);
+  await p.getByRole("radio", { name: new RegExp(c.service) }).click();
+  await p.getByRole("radiogroup", { name: "Dag" }).getByRole("radio").nth(c.dayIndex ?? 2).click();
+  await p.getByRole("radio", { name: c.time ?? "10:00", exact: true }).click();
+  await p.getByLabel("Navn").fill(c.name);
+  await p.getByLabel("Telefon").fill(c.phone);
+  await p.getByLabel("E-mail (til bekræftelse)").fill(c.email);
+  await p.getByRole("checkbox").check();
+  await p.getByRole("button", { name: "Book tid" }).click();
+  await expect(p.getByRole("status")).toContainText("Din tid er booket");
+  return { ctx, page: p };
+}
+
+/** Forbinder den simulerede e-conomic og vælger standardvalg (Indstillinger → Regnskab). */
+export async function connectEconomic(page: Page) {
+  await page.goto("/indstillinger/regnskab");
+  await page.getByRole("link", { name: "Forbind e-conomic" }).click();
+  await expect(page.getByRole("status")).toContainText("e-conomic er forbundet.");
+  await page.getByLabel("Vare på fakturalinjer").selectOption("100");
+  await page.getByLabel("Betalingsbetingelse").selectOption("1");
+  await page.getByLabel("Fakturalayout").selectOption("21");
+  await page.getByLabel("Kundegruppe for nye kunder").selectOption("1");
+  await page.getByLabel("Momszone for nye kunder").selectOption("1");
+  await page.getByRole("button", { name: "Gem standardvalg" }).click();
+  await expect(page.getByText("Standardvalgene er gemt.")).toBeVisible();
+}

@@ -571,6 +571,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "BOOKING_CANCELLED",
   "RETAINER_ALERT",
   "INVOICE_PAID",
+  "AGREEMENT_ALERT",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -755,6 +756,8 @@ export const bookingSettings = pgTable("booking_settings", {
   cancelHours: integer("cancel_hours").notNull().default(24),
   /** Tekst øverst på bookingsiden. */
   intro: text("intro"),
+  /** Depositum ved onlinebooking i øre (kræver Stripe). Null = intet depositum. */
+  depositOre: integer("deposit_ore"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -824,6 +827,9 @@ export const bookings = pgTable(
     serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
     serviceName: text("service_name").notNull(),
     priceOre: integer("price_ore").notNull().default(0),
+    /** Depositum, kunden skal betale online (øre), og hvornår det er betalt. */
+    depositOre: integer("deposit_ore"),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     status: bookingStatusEnum("status").notNull().default("CONFIRMED"),
@@ -1145,6 +1151,8 @@ export const invoices = pgTable(
     token: text("token").notNull().unique(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    /** Hvordan betalingen blev registreret: "economic", "stripe" eller "manual". */
+    paidVia: text("paid_via"),
     syncedAt: timestamp("synced_at", { withTimezone: true }),
     /** Sat mens fakturaen bogføres, så et dobbeltklik ikke bogfører den to gange. */
     lockedAt: timestamp("locked_at", { withTimezone: true }),
@@ -1158,4 +1166,133 @@ export const invoices = pgTable(
     index("invoices_deal_idx").on(t.dealId),
     uniqueIndex("invoices_workspace_number_idx").on(t.workspaceId, t.economicNumber),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Betaling med kort og MobilePay via Stripe (én Stripe-konto pr. firma).
+// ---------------------------------------------------------------------------
+
+export const stripeConnections = pgTable("stripe_connections", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Stripes hemmelige nøgle (krypteret). */
+  secretKeyEnc: text("secret_key_enc").notNull(),
+  /** Webhook, som Kundespor selv har oprettet hos Stripe, og dens signeringsnøgle (krypteret). */
+  webhookEndpointId: text("webhook_endpoint_id"),
+  webhookSecretEnc: text("webhook_secret_enc"),
+  accountName: text("account_name"),
+  livemode: boolean("livemode").notNull().default(false),
+  connectedById: uuid("connected_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// SMS via GatewayAPI (dansk udbyder, EU). Kun servicebeskeder om bookinger – aldrig reklame.
+// ---------------------------------------------------------------------------
+
+export const smsSettings = pgTable("sms_settings", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** API-nøgle fra GatewayAPI (krypteret). */
+  tokenEnc: text("token_enc").notNull(),
+  /** Afsendernavn, op til 11 tegn (fx "Bilpleje"). */
+  sender: text("sender").notNull(),
+  confirmation: boolean("confirmation").notNull().default(true),
+  reminder: boolean("reminder").notNull().default(true),
+  /** Højeste antal SMS-dele pr. måned (styrer udgiften). */
+  monthlyLimit: integer("monthly_limit").notNull().default(300),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const smsLog = pgTable(
+  "sms_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    /** "confirmation", "reminder" eller "test". */
+    kind: text("kind").notNull(),
+    parts: integer("parts").notNull().default(1),
+    status: text("status").notNull(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("sms_log_workspace_idx").on(t.workspaceId, t.createdAt),
+    // Samme besked sendes aldrig to gange for samme booking.
+    uniqueIndex("sms_log_booking_kind_idx").on(t.bookingId, t.kind),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Faste aftaler (abonnementer): gentagne bookinger og/eller fakturaer.
+// ---------------------------------------------------------------------------
+
+export const agreementStatusEnum = pgEnum("agreement_status", ["ACTIVE", "PAUSED", "ENDED"]);
+export type AgreementStatus = (typeof agreementStatusEnum.enumValues)[number];
+export const agreementIntervalEnum = pgEnum("agreement_interval", ["WEEK", "MONTH"]);
+export type AgreementInterval = (typeof agreementIntervalEnum.enumValues)[number];
+export const agreementInvoiceModeEnum = pgEnum("agreement_invoice_mode", ["NONE", "DRAFT", "SEND"]);
+export type AgreementInvoiceMode = (typeof agreementInvoiceModeEnum.enumValues)[number];
+
+export const agreements = pgTable(
+  "agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    status: agreementStatusEnum("status").notNull().default("ACTIVE"),
+    /** Linjer pr. periode, priser i øre ekskl. moms. */
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull().default([]),
+    interval: agreementIntervalEnum("interval").notNull().default("MONTH"),
+    intervalCount: integer("interval_count").notNull().default(1),
+    /** Næste gang aftalen udløser en booking og/eller faktura. */
+    nextDate: date("next_date").notNull(),
+    endDate: date("end_date"),
+    /** Måneder (1–12), hvor aftalen er aktiv. Tom = hele året. */
+    seasonMonths: jsonb("season_months").$type<number[]>().notNull().default([]),
+    /** Årlig prisregulering i procent, udført i den valgte måned. */
+    priceAdjustPct: numeric("price_adjust_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+    priceAdjustMonth: integer("price_adjust_month"),
+    lastAdjustedYear: integer("last_adjusted_year"),
+    /** Bilpleje: ydelse og fast tidspunkt, der bookes automatisk. */
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    bookingTime: text("booking_time"),
+    invoiceMode: agreementInvoiceModeEnum("invoice_mode").notNull().default("NONE"),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("agreements_workspace_idx").on(t.workspaceId, t.status, t.nextDate),
+    index("agreements_company_idx").on(t.companyId),
+    index("agreements_contact_idx").on(t.contactId),
+  ],
+);
+
+/** Én gennemført periode af en aftale (så den aldrig udføres to gange). */
+export const agreementRuns = pgTable(
+  "agreement_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => agreements.id, { onDelete: "cascade" }),
+    periodDate: date("period_date").notNull(),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("agreement_runs_period_idx").on(t.agreementId, t.periodDate)],
 );
