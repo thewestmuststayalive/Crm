@@ -217,3 +217,10 @@ Inspireret af Clientflow (clientflow.nu). Plan: 1) fakturering, 2) MobilePay/kor
 - **Afsendelse:** bekræftelse ved onlinebooking og manuel booking med "send bekræftelse"; påmindelse dagen før i den daglige kørsel. Danske 8-cifrede numre får +45. Hver besked sendes højst én gang pr. booking (unik række i `sms_log`), og loftet tjekkes før afsendelse. Loggen gemmer ikke telefonnumre.
 - **Lov:** kun servicebeskeder om en booking kunden selv har lavet – ingen reklame-SMS (markedsføringsloven § 10).
 - **Test:** GatewayAPI's EU-adresse og fejlformat er afprøvet live (401 med ugyldig nøgle); afsendelse er testet mod en simulering.
+
+## 13. Faste aftaler og abonnementer (nov. 2026) – del 4 af 4
+
+- **Aftale:** kunde (virksomhed og/eller kontakt), linjer pr. gang (ekskl. moms), interval (hver n. uge/måned), første dato, slutdato, sæson (måneder), årlig prisregulering (% i en valgt måned), fast booking (ydelse + tidspunkt) og fakturering (ingen / kladde / bogfør og send via e-conomic). Kun administratorer.
+- **Daglig kørsel:** bookinger oprettes en uge før (kunden får bekræftelse på e-mail/SMS); fakturaer på datoen. Hver periode udføres højst én gang (`agreement_runs` unik pr. periode). Uden for sæsonen springes perioden over og logges. Er tiden optaget, oprettes ingen dobbeltbooking – den ansvarlige får en notifikation. Fejler automatisk fakturering, bliver fakturaen en kladde og der kommer en notifikation.
+- **Oversigt:** /aftaler med anslået månedlig omsætning; aftaler vises på kunden og virksomheden; "Udfør næste periode nu".
+- **Ikke med:** forudfakturering af en hel sæson og automatisk kortbetaling af abonnementer (MobilePay via Stripe er engangsbetaling).

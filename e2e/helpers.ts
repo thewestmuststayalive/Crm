@@ -103,3 +103,17 @@ export async function bookAsCustomer(
   await expect(p.getByRole("status")).toContainText("Din tid er booket");
   return { ctx, page: p };
 }
+
+/** Forbinder den simulerede e-conomic og vælger standardvalg (Indstillinger → Regnskab). */
+export async function connectEconomic(page: Page) {
+  await page.goto("/indstillinger/regnskab");
+  await page.getByRole("link", { name: "Forbind e-conomic" }).click();
+  await expect(page.getByRole("status")).toContainText("e-conomic er forbundet.");
+  await page.getByLabel("Vare på fakturalinjer").selectOption("100");
+  await page.getByLabel("Betalingsbetingelse").selectOption("1");
+  await page.getByLabel("Fakturalayout").selectOption("21");
+  await page.getByLabel("Kundegruppe for nye kunder").selectOption("1");
+  await page.getByLabel("Momszone for nye kunder").selectOption("1");
+  await page.getByRole("button", { name: "Gem standardvalg" }).click();
+  await expect(page.getByText("Standardvalgene er gemt.")).toBeVisible();
+}

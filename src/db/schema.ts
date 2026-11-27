@@ -571,6 +571,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "BOOKING_CANCELLED",
   "RETAINER_ALERT",
   "INVOICE_PAID",
+  "AGREEMENT_ALERT",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -1225,4 +1226,73 @@ export const smsLog = pgTable(
     // Samme besked sendes aldrig to gange for samme booking.
     uniqueIndex("sms_log_booking_kind_idx").on(t.bookingId, t.kind),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Faste aftaler (abonnementer): gentagne bookinger og/eller fakturaer.
+// ---------------------------------------------------------------------------
+
+export const agreementStatusEnum = pgEnum("agreement_status", ["ACTIVE", "PAUSED", "ENDED"]);
+export type AgreementStatus = (typeof agreementStatusEnum.enumValues)[number];
+export const agreementIntervalEnum = pgEnum("agreement_interval", ["WEEK", "MONTH"]);
+export type AgreementInterval = (typeof agreementIntervalEnum.enumValues)[number];
+export const agreementInvoiceModeEnum = pgEnum("agreement_invoice_mode", ["NONE", "DRAFT", "SEND"]);
+export type AgreementInvoiceMode = (typeof agreementInvoiceModeEnum.enumValues)[number];
+
+export const agreements = pgTable(
+  "agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    status: agreementStatusEnum("status").notNull().default("ACTIVE"),
+    /** Linjer pr. periode, priser i øre ekskl. moms. */
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull().default([]),
+    interval: agreementIntervalEnum("interval").notNull().default("MONTH"),
+    intervalCount: integer("interval_count").notNull().default(1),
+    /** Næste gang aftalen udløser en booking og/eller faktura. */
+    nextDate: date("next_date").notNull(),
+    endDate: date("end_date"),
+    /** Måneder (1–12), hvor aftalen er aktiv. Tom = hele året. */
+    seasonMonths: jsonb("season_months").$type<number[]>().notNull().default([]),
+    /** Årlig prisregulering i procent, udført i den valgte måned. */
+    priceAdjustPct: numeric("price_adjust_pct", { precision: 5, scale: 2 }).notNull().default("0"),
+    priceAdjustMonth: integer("price_adjust_month"),
+    lastAdjustedYear: integer("last_adjusted_year"),
+    /** Bilpleje: ydelse og fast tidspunkt, der bookes automatisk. */
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    bookingTime: text("booking_time"),
+    invoiceMode: agreementInvoiceModeEnum("invoice_mode").notNull().default("NONE"),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("agreements_workspace_idx").on(t.workspaceId, t.status, t.nextDate),
+    index("agreements_company_idx").on(t.companyId),
+    index("agreements_contact_idx").on(t.contactId),
+  ],
+);
+
+/** Én gennemført periode af en aftale (så den aldrig udføres to gange). */
+export const agreementRuns = pgTable(
+  "agreement_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => agreements.id, { onDelete: "cascade" }),
+    periodDate: date("period_date").notNull(),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("agreement_runs_period_idx").on(t.agreementId, t.periodDate)],
 );
