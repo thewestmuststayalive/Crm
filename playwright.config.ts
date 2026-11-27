@@ -56,6 +56,11 @@ export default defineConfig({
       CVR_ES_URL: "http://localhost:3999/cvr-permanent/virksomhed/_search",
       // Hjemmeside-tjekket må kun nå netop denne lokale testserver – alt andet internt afvises stadig.
       WEBSITE_CHECK_ALLOW_HOSTS: "localhost:3999",
+      // Fakturering: falsk e-conomic i e2e/meta-mock.ts.
+      ECONOMIC_APP_SECRET_TOKEN: "test-economic-secret",
+      ECONOMIC_APP_PUBLIC_TOKEN: "test-economic-public",
+      ECONOMIC_API_URL: "http://localhost:3999/economic-api",
+      ECONOMIC_CONNECT_URL: "http://localhost:3999/economic-connect",
     },
   },
 });

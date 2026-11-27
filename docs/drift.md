@@ -58,6 +58,7 @@ Disse trin kan vente, til du har brug for dem.
 | `RESEND_API_KEY`, `EMAIL_FROM` | Når I vil have invitationer og "glemt adgangskode" på e-mail | Opret en gratis konto på [resend.com](https://resend.com), bekræft jeres domæne, og lav en API-nøgle. `EMAIL_FROM` fx `Kundespor <noreply@ditfirma.dk>` |
 | `GOOGLE_PLACES_API_KEY` | Når I vil søge leads i Google Maps | Nøgle til Places API (New) fra Google Cloud. Vejledning i appen under Find leads. Sæt også et dagligt loft i Google Cloud under Kvoter. 1.000 søgninger pr. måned er gratis; Kundespor har sit eget loft pr. firma (standard 200). |
 | `CVR_ES_USER`, `CVR_ES_PASSWORD` | Når I vil søge leads i CVR | Gratis "system-til-system"-adgang fra Erhvervsstyrelsen (cvrselvbetjening@erst.dk). `CVR_ES_URL` kan ændre adressen, hvis Erhvervsstyrelsen flytter den. |
+| `ECONOMIC_APP_SECRET_TOKEN`, `ECONOMIC_APP_PUBLIC_TOKEN` | Når I vil fakturere via e-conomic | Fra en gratis udvikleraftale hos e-conomic (kræver CVR og MitID). Opret en app med rollen Superbruger, og sæt redirect-adressen til `https://<jeres-adresse>/api/economic/callback`. Hvert firma forbinder derefter selv under Indstillinger → Regnskab. **Kræver e-conomic Plus eller højere** – på Basis kan andre programmer ikke oprette fakturaer. |
 
 Efter ændringer i miljøvariabler skal der altid deployes igen (Deployments → Redeploy).
 
@@ -67,7 +68,7 @@ Databasen opdateres (migreres) automatisk, når `main` deployes til den rigtige 
 
 ## 6. Automatik
 
-- **Hver morgen** (Vercel Cron, `vercel.json` → `/api/cron/daily`) kører Kundespor de automatiske opfølgningsregler, henter annoncedata fra Meta, sender planlagte anmodninger om anmeldelse, sender påmindelser til kunder med en booking næste dag, sletter gamle leads (kun i firmaer, der har slået det til under Indstillinger → Persondata), sletter firmaer i lead-lister, der ikke er rørt i 6 måneder, og sender den daglige oversigt på e-mail. Det virker også på Hobby. Kræver at `CRON_SECRET` er sat.
+- **Hver morgen** (Vercel Cron, `vercel.json` → `/api/cron/daily`) kører Kundespor de automatiske opfølgningsregler, henter annoncedata fra Meta, sender planlagte anmodninger om anmeldelse, sender påmindelser til kunder med en booking næste dag, sletter gamle leads (kun i firmaer, der har slået det til under Indstillinger → Persondata), sletter firmaer i lead-lister, der ikke er rørt i 6 måneder, opdaterer betalingsstatus på sendte fakturaer fra e-conomic og sender den daglige oversigt på e-mail. Det virker også på Hobby. Kræver at `CRON_SECRET` er sat.
 - **Sundhedstjek:** `/api/health` svarer `{"ok":true}`, når appen kører. Kan bruges til overvågning (fx UptimeRobot).
 
 ## 7. Backup

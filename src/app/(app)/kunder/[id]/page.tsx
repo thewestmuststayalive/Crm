@@ -16,6 +16,7 @@ import { formatWhen } from "@/lib/booking-flow";
 import { getModules } from "@/lib/modules";
 import { ActivityForm } from "@/components/activity-form";
 import { Badge, DetailRow, PageHeader, SourceBadge, StatusBadge } from "@/components/display";
+import { CreateInvoiceButton, InvoiceList } from "@/components/invoice-widgets";
 import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton, SubmitButton } from "@/components/ui";
@@ -70,6 +71,7 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
         }
         actions={
           <>
+            <CreateInvoiceButton fields={{ contactId: contact.id }} />
             <Link href={`/kunder/${contact.id}/rediger`} className={buttonClass("secondary")}>
               Redigér
             </Link>
@@ -172,6 +174,9 @@ export default async function ContactPage({ params }: PageProps<"/kunder/[id]">)
             </>
           )}
           <DealsCard deals={deals} newHref={`/pipeline/ny?kontakt=${contact.id}`} />
+          <Card title="Fakturaer">
+            <InvoiceList workspaceId={workspace.id} filter={{ contactId: contact.id }} />
+          </Card>
           <Card title="Opgaver">
             <TaskForm members={members} defaultAssigneeId={user.id} contactId={contact.id} />
             {tasks.length > 0 && (

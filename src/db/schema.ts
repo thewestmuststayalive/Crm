@@ -154,6 +154,8 @@ export const companies = pgTable(
     reportEnabled: boolean("report_enabled").notNull().default(false),
     reportEmail: text("report_email"),
     reportLastSentMonth: text("report_last_sent_month"),
+    /** Kundenummer i e-conomic, når firmaet er faktureret. */
+    economicCustomerNumber: integer("economic_customer_number"),
     ...timestamps,
   },
   (t) => [index("companies_workspace_name_idx").on(t.workspaceId, t.name)],
@@ -180,6 +182,8 @@ export const contacts = pgTable(
     /** Personen har frabedt sig e-mails (fx anmodninger om anmeldelse). */
     emailOptOutAt: timestamp("email_opt_out_at", { withTimezone: true }),
     custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
+    /** Kundenummer i e-conomic, når personen er faktureret direkte (privatkunde). */
+    economicCustomerNumber: integer("economic_customer_number"),
     ...timestamps,
   },
   (t) => [
@@ -566,6 +570,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "NEW_BOOKING",
   "BOOKING_CANCELLED",
   "RETAINER_ALERT",
+  "INVOICE_PAID",
 ]);
 export type NotificationType = (typeof notificationTypeEnum.enumValues)[number];
 
@@ -1076,4 +1081,81 @@ export const leadSearchUsage = pgTable(
     googleRequests: integer("google_requests").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.month] })],
+);
+
+// ---------------------------------------------------------------------------
+// Fakturering via e-conomic. Bogføring, nummerering og moms sker i e-conomic.
+// ---------------------------------------------------------------------------
+
+/** Standardvalg, der bruges på alle fakturaer til e-conomic. */
+export type EconomicSettings = {
+  layoutNumber?: number;
+  paymentTermsNumber?: number;
+  customerGroupNumber?: number;
+  vatZoneNumber?: number;
+  productNumber?: string;
+};
+
+export const economicConnections = pgTable("economic_connections", {
+  workspaceId: uuid("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  /** Adgangstoken til firmaets e-conomic-aftale (krypteret). */
+  grantTokenEnc: text("grant_token_enc").notNull(),
+  agreementNumber: integer("agreement_number"),
+  companyName: text("company_name"),
+  /** e-conomics abonnementsniveau, fx "basis" eller "plus". Basis kan kun læse. */
+  planLevel: text("plan_level"),
+  settings: jsonb("settings").$type<EconomicSettings>().notNull().default({}),
+  connectedById: uuid("connected_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const invoiceStatusEnum = pgEnum("invoice_status", ["DRAFT", "ECONOMIC_DRAFT", "BOOKED", "PAID"]);
+export type InvoiceStatus = (typeof invoiceStatusEnum.enumValues)[number];
+
+/** En fakturalinje. Pris i øre ekskl. moms. */
+export type InvoiceLine = { description: string; quantity: number; unitPriceOre: number };
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    status: invoiceStatusEnum("status").notNull().default("DRAFT"),
+    heading: text("heading"),
+    /** Modtagerens e-mail til fakturaen. */
+    email: text("email"),
+    lines: jsonb("lines").$type<InvoiceLine[]>().notNull().default([]),
+    economicDraftNumber: integer("economic_draft_number"),
+    economicNumber: integer("economic_number"),
+    date: date("date"),
+    dueDate: date("due_date"),
+    netOre: integer("net_ore"),
+    vatOre: integer("vat_ore"),
+    grossOre: integer("gross_ore"),
+    remainderOre: integer("remainder_ore"),
+    /** Hemmeligt id i linket til kundens fakturaside. */
+    token: text("token").notNull().unique(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+    /** Sat mens fakturaen bogføres, så et dobbeltklik ikke bogfører den to gange. */
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("invoices_workspace_status_idx").on(t.workspaceId, t.status, t.dueDate),
+    index("invoices_company_idx").on(t.companyId),
+    index("invoices_contact_idx").on(t.contactId),
+    index("invoices_deal_idx").on(t.dealId),
+    uniqueIndex("invoices_workspace_number_idx").on(t.workspaceId, t.economicNumber),
+  ],
 );

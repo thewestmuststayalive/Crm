@@ -8,7 +8,15 @@ export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
-type Email = { to: string; subject: string; html: string; text: string; headers?: Record<string, string> };
+type Email = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  headers?: Record<string, string>;
+  /** Vedhæftede filer; indhold som base64. */
+  attachments?: { filename: string; content: string }[];
+};
 
 export async function sendEmail(email: Email): Promise<{ sent: boolean }> {
   if (!isEmailConfigured()) return { sent: false };

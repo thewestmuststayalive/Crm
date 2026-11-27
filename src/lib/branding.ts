@@ -76,6 +76,11 @@ export const EMAIL_TEXTS = {
     default: 'Tak for din interesse. Her er vores tilbud på "{titel}" på {beløb} inkl. moms.',
     vars: ["navn", "titel", "beløb", "firma"],
   },
+  invoiceSent: {
+    label: "Faktura sendt til kunden",
+    default: "Tak for handlen. Her er faktura {nummer} på {beløb} inkl. moms. Betal senest {forfald}.",
+    vars: ["navn", "nummer", "beløb", "forfald", "firma"],
+  },
 } as const;
 
 export type EmailTextKey = keyof typeof EMAIL_TEXTS;

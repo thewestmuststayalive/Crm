@@ -13,6 +13,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   NEW_BOOKING: "Nye bookinger",
   BOOKING_CANCELLED: "Aflyste bookinger",
   RETAINER_ALERT: "Advarsler om retainers",
+  INVOICE_PAID: "Fakturaer betalt",
 };
 
 export const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_LABELS) as NotificationType[];

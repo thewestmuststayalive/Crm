@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteDeal } from "@/app/actions/deals";
 import { createQuote } from "@/app/actions/quotes";
+import { CreateInvoiceButton, InvoiceList } from "@/components/invoice-widgets";
 import { ActivityForm } from "@/components/activity-form";
 import { Badge, DetailRow, PageHeader, SourceBadge } from "@/components/display";
 import { buttonClass } from "@/components/styles";
@@ -131,6 +132,12 @@ export default async function DealPage({ params }: PageProps<"/pipeline/[id]">) 
                 Nyt tilbud
               </SubmitButton>
             </form>
+          </Card>
+          <Card title="Fakturaer">
+            <div className="space-y-3">
+              <InvoiceList workspaceId={workspace.id} filter={{ dealId: deal.id }} />
+              <CreateInvoiceButton fields={{ dealId: deal.id }} />
+            </div>
           </Card>
           <Card title="Opgaver">
             <TaskForm members={members} defaultAssigneeId={user.id} dealId={deal.id} />

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { deleteCompany } from "@/app/actions/companies";
 import { ActivityForm } from "@/components/activity-form";
 import { DetailRow, PageHeader, StatusBadge } from "@/components/display";
+import { CreateInvoiceButton, InvoiceList } from "@/components/invoice-widgets";
 import { buttonClass } from "@/components/styles";
 import { Timeline } from "@/components/timeline";
 import { Card, ConfirmButton } from "@/components/ui";
@@ -60,6 +61,8 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
   ]);
   const agency = modules.agency;
   const month = currentMonth();
+  // Tid faktureres bagud: forrige måned.
+  const invoiceMonth = shiftMonth(month, -1);
   const reportToken = agency ? await ensureReportToken(workspace.id, company.id) : null;
   const appUrl = agency ? await getAppUrl() : "";
   const [timeline, deals, tasks, members, retainer, monthEntries, projects] = await Promise.all([
@@ -80,6 +83,13 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
         subtitle={company.cvr ? `CVR ${company.cvr}` : undefined}
         actions={
           <>
+            <CreateInvoiceButton fields={{ companyId: company.id }} />
+            {agency && (
+              <CreateInvoiceButton
+                fields={{ companyId: company.id, month: invoiceMonth }}
+                label={`Fakturér ${formatMonth(invoiceMonth)}`}
+              />
+            )}
             <Link href={`/virksomheder/${company.id}/rediger`} className={buttonClass("secondary")}>
               Redigér
             </Link>
@@ -131,6 +141,9 @@ export default async function CompanyPage({ params }: PageProps<"/virksomheder/[
               <CustomFieldRows fields={customFields} values={company.custom} />
               <DetailRow label="Ansvarlig">{ownerName}</DetailRow>
             </dl>
+          </Card>
+          <Card title="Fakturaer">
+            <InvoiceList workspaceId={workspace.id} filter={{ companyId: company.id }} />
           </Card>
           <Card title={`Kontaktpersoner (${contacts.length})`}>
             {contacts.length === 0 ? (
